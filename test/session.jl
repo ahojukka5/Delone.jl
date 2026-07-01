@@ -54,6 +54,34 @@ end
     @test_throws ArgumentError level_mesh(s, 3)
 end
 
+@testset "unsafe_level_mesh: alias returning the live handle" begin
+    geom = load_step(STEP)
+    s = mesh_session(geom; maxh=40.0)
+    @test unsafe_level_mesh(s, 1) === level_mesh(s, 1)
+    # direct mutation through the live handle does NOT bump generation (documented)
+    g0 = generation(s)
+    refine!(unsafe_level_mesh(s, 1))
+    @test generation(s) == g0                    # no automatic tracking
+    @test_throws ArgumentError unsafe_level_mesh(s, 5)
+end
+
+@testset "mutate_level_mesh! bumps generation (generation-safe mutation)" begin
+    geom = load_step(STEP)
+    s = mesh_session(geom; maxh=40.0)
+    g0 = generation(s)
+    np0 = Netgen.GetNP(finest(s))
+    ret = mutate_level_mesh!(s, 1) do m
+        make_second_order!(m)
+    end
+    @test ret === s                              # returns the session
+    @test generation(s) == g0 + 1               # bumped by default
+    @test Netgen.GetNP(finest(s)) > np0
+    # bump_generation=false leaves generation unchanged
+    g1 = generation(s)
+    mutate_level_mesh!(m -> Netgen.Compress(m), s, 1; bump_generation=false)
+    @test generation(s) == g1
+end
+
 @testset "request_second_order! curves the finest mesh in place (no new level)" begin
     geom = load_step(STEP)
     s = mesh_session(geom; maxh=40.0)
@@ -65,6 +93,25 @@ end
     @test Netgen.GetNP(finest(s)) > np0         # edge-midpoint nodes added
     @test s.metadata[:curved_order] == 2
     @test_throws ArgumentError request_second_order!(s; order=3)
+end
+
+@testset "request_second_order! invalidates prior snapshots via generation" begin
+    geom = load_step(STEP)
+    s = mesh_session(geom; maxh=40.0)
+    snap = level_snapshot(s, 1)                 # snapshot BEFORE curving
+    @test snap.generation == generation(s)      # fresh at capture time
+    np_before = size(snap.coordinates, 2)
+    g0 = generation(s)
+    request_second_order!(s)
+    @test generation(s) == g0 + 1               # generation changed
+    @test snap.generation != generation(s)      # old snapshot is now stale
+    @test Netgen.GetNP(finest(s)) > np_before   # node count changed
+    # re-snapshotting the same level works and is fresh again (curved simplices ok)
+    snap2 = level_snapshot(s, 1)
+    @test snap2.generation == generation(s)
+    @test size(snap2.coordinates, 2) > np_before
+    # corner connectivity is still Tet4 (high-order nodes not referenced)
+    @test size(snap2.volume_connectivity, 1) == 4
 end
 
 @testset "level_snapshot returns coordinates/connectivity/tags (3D)" begin
@@ -101,6 +148,29 @@ end
     @test length(t.parent_elements) == Netgen.GetNE(m)
     @test length(t.parent_surface_elements) == Netgen.GetNSE(m)
     @test t.weights === nothing
+    # explicit weight semantics: nothing => topological bisection fallback
+    @test t.weight_semantics == :topological_bisection_default
+    @test transfer_weight_semantics(t) == :topological_bisection_default
+end
+
+@testset "supported_snapshot_topology guard accepts current fixtures" begin
+    geom = load_step(STEP)
+    m3 = generate_mesh(geom; maxh=40.0)
+    @test supported_snapshot_topology(m3)        # Tet4/Tri3
+    make_second_order!(m3)
+    @test supported_snapshot_topology(m3)        # Tet10/Tri6 still simplices
+    disk = Circle(0.0, 0.0, 1.0, "disk", "circle")
+    m2 = generate_mesh(geometry2d(disk); maxh=0.4)
+    @test supported_snapshot_topology(m2)        # Tri3/Segment
+    # Negative path via an unsupported dimension (constructing a genuinely mixed /
+    # non-simplex mesh is not feasible through the current wrappers — no arbitrary
+    # Element/Element2d constructors — so the guard's rejection path is exercised
+    # through the dimension branch, which shares the same ArgumentError).
+    bad = Netgen.new_mesh()
+    Netgen.SetDimension(bad, 1)
+    @test supported_snapshot_topology(bad) == false
+    s_bad = Netgen.MeshHierarchySession(geom, Any[bad], 0, Dict{Symbol,Any}())
+    @test_throws ArgumentError level_snapshot(s_bad, 1)
 end
 
 @testset "transfer_snapshot(session, 1) throws ArgumentError" begin
