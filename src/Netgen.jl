@@ -3,7 +3,7 @@
 
 A CxxWrap-based Julia binding and extension layer for the exported C++ API of
 NGSolve/Netgen, with Julia-side utilities for geometry-backed mesh hierarchies
-and Oodi.jl GMG integration.
+and geometric-multigrid / hp-adaptivity integration.
 
 The native binding (`NetgenCxxWrap_jll` / `libnetgen_cxxwrap`) is a **strict 1:1**
 CxxWrap module: every wrapped name matches Netgen's own C++ name (`GetNP`,
@@ -356,6 +356,15 @@ function prolongation(h::MeshHierarchy, k::Integer)
     return parent_nodes(h.meshes[k])
 end
 
+# --- live session / snapshots / tags / hp / partition (consumer contract) ---
+# Julia-only layers on top of the strict 1:1 bindings. See
+# audit/NETGEN_LIVE_HIERARCHY_AND_PARTITION_CONTRACT_2026-07-01.md.
+include("tags.jl")        # element extraction + region/tag helpers
+include("hp.jl")          # hp-adaptivity readiness (order/hp-level readers)
+include("session.jl")     # MeshHierarchySession + refinement requests
+include("snapshots.jl")   # copied snapshot data contract for consumers
+include("partition.jl")   # partition/load-balancing data contract
+
 # --- OCC: raw OpenCASCADE modeling kernel -----------------------------------
 """
     Netgen.OCC
@@ -535,6 +544,21 @@ export load_step, load_iges, load_brep, load_geometry, generate_mesh,
        copy_mesh, MeshHierarchy, coarse_hierarchy, uniform_hierarchy,
        refine_uniform!, refine_marked!,
        nlevels, coarsest, finest, geometry, prolongation,
+       # live session (authoritative handles + refinement requests)
+       MeshHierarchySession, mesh_session, level_mesh, generation,
+       request_uniform_refinement!, request_marked_refinement!,
+       request_second_order!,
+       # snapshot data contract (copies for downstream consumers)
+       MeshLevelSnapshot, HierarchyTransferSnapshot, MeshHierarchySnapshot,
+       level_snapshot, transfer_snapshot, hierarchy_snapshot,
+       # element extraction + region/tag helpers
+       volume_tetrahedra, triangles2d, segments2d,
+       cell_regions, boundary_regions, material_names, boundary_names,
+       # hp-adaptivity readiness
+       element_order, element_orders, surface_element_order,
+       surface_element_orders, hp_element_levels,
+       # partitioning / load-balancing data contract
+       native_partition_hint,
        NG_TET, NG_TRIG, NG_REFINE_H, NG_REFINE_P, NG_REFINE_HP,
        Segment, FaceDescriptor, LocalH, new_localh,
        STLParameters, STLGeometry, LoadSTL, load_stl,
