@@ -17,7 +17,7 @@ module Netgen
 using CxxWrap
 using Libdl
 using Artifacts
-import OCCT_jll
+import OCCT_jll  # OCCT (+ FreeType) must load before libnetgen_cxxwrap (BREP bridge)
 import Zlib_jll
 
 const _netgen_dir = artifact"NGSolveNetgen"
@@ -30,8 +30,7 @@ function __init__()
     flags = Libdl.RTLD_LAZY | Libdl.RTLD_GLOBAL
     Libdl.dlopen(joinpath(_netgen_dir, "lib", "libngcore.$(Libdl.dlext)"), flags)
     Libdl.dlopen(joinpath(_netgen_dir, "lib", "libnglib.$(Libdl.dlext)"), flags)
-    @initcxx                  # Netgen module first (registers NetgenGeometry, …)
-    OCC.__occ_initcxx()       # then the OCC module (OCCGeometry returns NetgenGeometry)
+    @initcxx
 end
 
 # Netgen ELEMENT_TYPE ids (for comparing GetType results).
@@ -371,168 +370,7 @@ include("fem.jl")         # curved maps, parent edge/face, periodic, codim names
 include("session.jl")     # MeshHierarchySession + refinement requests
 include("snapshots.jl")   # copied snapshot data contract for consumers
 include("partition.jl")   # partition/load-balancing data contract
-
-# --- OCC: raw OpenCASCADE modeling kernel -----------------------------------
-"""
-    Netgen.OCC
-
-The OpenCASCADE modeling kernel wrapped 1:1 — raw OCCT class names, no
-convenience helpers. Build a shape from primitives/builders/booleans, then turn
-it into a meshable geometry with `OCCGeometry`:
-
-    using Netgen, Netgen.OCC
-    shape = BRepPrimAPI_MakeCylinder(gp_Ax2(gp_Pnt(0,0,0), gp_Dir(0,0,1)), 1.0, 2.0) |> Shape
-    geom  = OCCGeometry(shape)
-    mesh  = generate_mesh(geom; maxh=0.3)
-
-All higher-level logic belongs in the consuming package.
-"""
-module OCC
-
-using CxxWrap
-using Libdl
-using Artifacts
-
-# A second CxxWrap module in the same shared library; these types/functions are
-# defined HERE (in Netgen.OCC), not in the parent module.
-const _libnetgen_cxxwrap =
-    joinpath(artifact"libnetgen_cxxwrap", "lib", "libnetgen_cxxwrap.$(Libdl.dlext)")
-
-@wrapmodule(() -> _libnetgen_cxxwrap, :define_julia_module_occ)
-
-# Finalized explicitly from Netgen.__init__ AFTER the parent module's @initcxx,
-# so OCCGeometry's NetgenGeometry return type is already registered.
-__occ_initcxx() = @initcxx
-
-# CxxWrap does not auto-export; export the raw OCCT names so `using Netgen.OCC`
-# brings them into scope.
-export gp_XYZ, gp_Pnt, gp_Vec, gp_Dir, gp_Ax1, gp_Ax2, gp_Ax3, gp_Trsf,
-       gp_XY, gp_Pnt2d, gp_Vec2d, gp_Dir2d, gp_Ax2d, gp_Trsf2d,
-       gp_Lin, gp_Circ, gp_Pln, gp_Elips, gp_Parab, gp_Hypr, gp_Mat, gp_GTrsf,
-       gp_Cylinder, gp_Cone, gp_Sphere, gp_Torus,
-       TopoDS_Shape, TopoDS_Vertex, TopoDS_Edge, TopoDS_Wire, TopoDS_Face,
-       TopoDS_Shell, TopoDS_Solid, TopoDS_Compound, TopoDS_CompSolid,
-       TopExp_Explorer, TopoDS_Iterator,
-       BRepPrimAPI_MakeBox, BRepPrimAPI_MakeCylinder, BRepPrimAPI_MakeSphere,
-       BRepPrimAPI_MakeCone, BRepPrimAPI_MakeTorus, BRepPrimAPI_MakePrism,
-       BRepPrimAPI_MakeRevol, BRepPrimAPI_MakeHalfSpace, BRepPrimAPI_MakeWedge,
-       BRepBuilderAPI_MakeVertex, BRepBuilderAPI_MakeEdge, BRepBuilderAPI_MakeWire,
-       BRepBuilderAPI_MakeFace, BRepBuilderAPI_MakeSolid, BRepBuilderAPI_MakePolygon,
-       BRepBuilderAPI_Transform, BRepBuilderAPI_Copy, BRepBuilderAPI_GTransform,
-       BRepAlgoAPI_Fuse, BRepAlgoAPI_Cut, BRepAlgoAPI_Common, BRepAlgoAPI_Section,
-       STEPControl_Reader, STEPControl_Writer, IGESControl_Reader, IGESControl_Writer,
-       GProp_GProps, Bnd_Box, BRepFilletAPI_MakeFillet, BRepFilletAPI_MakeChamfer,
-       TopTools_IndexedMapOfShape,
-       BRepTools_WireExplorer, BRepLProp_SLProps, BRepLProp_CLProps,
-       BRepBuilderAPI_Sewing, BRepClass3d_SolidClassifier,
-       BRepExtrema_DistShapeShape, ShapeAnalysis_ShapeContents,
-       BRep_Builder, BRepOffsetAPI_MakeOffset,
-       IntCurvesFace_ShapeIntersector,
-       GProp_PrincipalProps, Bnd_OBB,
-       BRepClass_FaceClassifier,
-       ShapeAnalysis_FreeBounds, ShapeAnalysis_Shell, ShapeAnalysis_Edge,
-       BRepMesh_IncrementalMesh, BRepAlgoAPI_Check,
-       ShapeFix_FreeBounds, ShapeFix_ShapeTolerance, ShapeFix_Wireframe,
-       ShapeUpgrade_UnifySameDomain,
-       TopTools_ListOfShape, BRepFeat_MakePrism, BRepFeat_MakeRevol,
-       BRepOffsetAPI_MakeThickSolid, BRepOffsetAPI_DraftAngle,
-       Geom_Curve, Geom_Surface,
-       GeomAPI_ProjectPointOnCurve, GeomAPI_ProjectPointOnSurf, GeomAPI_ExtremaCurveCurve,
-       OCCGeometry,
-       X, Y, Z, Coord, SetX, SetY, SetZ, Distance, Magnitude,
-       Location, Direction, XDirection, YDirection, Radius, MajorRadius, MinorRadius,
-       SetLocation, Axis, XAxis, YAxis, Focus, Parameter,
-       SetTranslation, SetRotation, SetScale,
-       SetValue, IsNegative, VectorialPart, SetVectorialPart,
-       TranslationPart, SetTranslationPart,
-       IsNull, ShapeType, Orientation, IsSame, IsEqual, NbChildren,
-       Reversed, Nullify, Init, More, Next, Current, Value, Add, Close,
-       Shape, Solid, Vertex, Edge, Wire, Face,
-       BRepTools_Write, BRepTools_Read,
-       ReadFile, TransferRoots, NbShapes, OneShape, Transfer, Write, AddShape,
-       Mass, CentreOfMass, MatrixOfInertia,
-       IsVoid, IsOpenXmin, IsOpenXmax, IsOpenYmin, IsOpenYmax, IsOpenZmin, IsOpenZmax,
-       CornerMin_X, CornerMin_Y, CornerMin_Z, CornerMax_X, CornerMax_Y, CornerMax_Z,
-       Enlarge, IsOut,
-       BRepGProp_LinearProperties, BRepGProp_SurfaceProperties, BRepGProp_VolumeProperties,
-       BRepBndLib_Add, BRep_Tool_Pnt,
-       Build, IsDone, NbContours,
-       Extent, Contains, FindIndex, FindKey, Clear, TopExp_MapShapes,
-       TopAbs_COMPOUND, TopAbs_COMPSOLID, TopAbs_SOLID, TopAbs_SHELL,
-       TopAbs_FACE, TopAbs_WIRE, TopAbs_EDGE, TopAbs_VERTEX, TopAbs_SHAPE,
-       TopAbs_IN, TopAbs_OUT, TopAbs_ON, TopAbs_UNKNOWN,
-       TopExp_FirstVertex, TopExp_LastVertex,
-       BRepAdaptor_Curve, BRepAdaptor_Surface,
-       FirstParameter, LastParameter, Tolerance, IsClosed, IsPeriodic,
-       D0, D1, D2,
-       FirstUParameter, LastUParameter, FirstVParameter, LastVParameter, Normal,
-       BRepCheck_Analyzer, ShapeFix_Shape,
-       IsValid, Perform, SetPrecision, SetMinTolerance, SetMaxTolerance,
-       BRep_Tool_ToleranceEdge, BRep_Tool_ToleranceFace, BRep_Tool_ToleranceVertex,
-       BRep_Tool_IsClosed, BRep_Tool_Degenerated, BRep_Tool_SameParameter,
-       BRep_Tool_FirstParameter, BRep_Tool_LastParameter,
-       BRepOffsetAPI_MakePipe, BRepOffsetAPI_ThruSections, BRepOffsetAPI_MakeOffsetShape,
-       AddWire, AddVertex, ErrorOnSurface, CheckCompatibility, PerformBySimple,
-       CurrentVertex, SetParameters,
-       IsNormalDefined, IsCurvatureDefined,
-       MinCurvature, MaxCurvature, MeanCurvature, GaussianCurvature,
-       SewedShape, SetTolerance, Tolerance,
-       NbFreeEdges, NbContigousEdges, NbMultipleEdges,
-       Load, PerformInfinitePoint, State, IsOnAFace,
-       NbSolution, PointOnShape1, PointOnShape2, InnerSolution,
-       NbSolids, NbShells, NbFaces, NbWires, NbEdges, NbVertices,
-       MakeCompound, MakeShell, Remove,
-       SetCurve, SetParameter, Curvature, CentreOfCurvature, IsTangentDefined, Tangent,
-       GeomAbs_Arc, GeomAbs_Tangent, GeomAbs_Intersection,
-       NbPnt, Pnt,
-       PerformNearest, SortResult, WParameter, UParameter, VParameter, Transition,
-       IntCurveSurface_In, IntCurveSurface_Out, IntCurveSurface_Tangent,
-       HasSymmetryAxis, HasSymmetryPoint,
-       FirstAxisOfInertia, SecondAxisOfInertia, ThirdAxisOfInertia,
-       PrincipalProperties, MomentOfInertia,
-       XHSize, YHSize, ZHSize, IsAABox, IsCompletelyInside,
-       Center, SetXComponent, SetYComponent, SetZComponent,
-       BRepBndLib_AddOBB,
-       GetClosedWires, GetOpenWires,
-       LoadShells, CheckOrientedShells, NbLoaded, IsLoaded,
-       HasBadEdges, BadEdges, HasFreeEdges, FreeEdges, HasConnectedEdges,
-       BRepTools_OuterWire, BRepTools_Compare, BRepTools_IsReallyClosed,
-       BRepTools_Update, BRepTools_CleanGeometry, BRepTools_RemoveUnusedPCurves,
-       BRepTools_UpdateFaceUVPoints, BRepTools_Clean,
-       SetFocal, Directrix, Focal,
-       Eccentricity, Asymptote1, Asymptote2, OtherBranch,
-       Focus1, Focus2, SetMajorRadius, SetMinorRadius,
-       GetStatusFlags, IsModified,
-       SetAxis, SetPosition, Position,
-       SetRadius, SetSemiAngle, Apex, RefRadius, SemiAngle, Area, Volume, Direct,
-       HasCurve3d, IsClosed3d, HasPCurve, IsSeam,
-       FirstVertex, LastVertex,
-       GetShape, LimitTolerance, SetTolerance,
-       FixWireGaps, FixSmallEdges, SetLimitAngle, LimitAngle,
-       Initialize, AllowInternalEdges, KeepShape, SetSafeInputMode,
-       SetLinearTolerance, SetAngularTolerance, Build,
-       Append, IsEmpty, First, Last,
-       Error, BRepBuilderAPI_WireDone, BRepBuilderAPI_EmptyWire,
-       BRepBuilderAPI_DisconnectedWire, BRepBuilderAPI_NonManifoldWire,
-       IsDeleted,
-       IsConstant,
-       AddDA, SetDists, SetDistAngle,
-       MakeThickSolidBySimple, MakeThickSolidByJoin, Modified,
-       BRepOffset_Skin, BRepOffset_Pipe, BRepOffset_RectoVerso,
-       AddDone,
-       PerformUntilEnd, PerformFromEnd, PerformThruAll,
-       PerformUntilHeight, PerformUntilAngle,
-       BRepLib_CheckSameRange, BRepLib_SameRange, BRepLib_BuildCurve3d,
-       BRepLib_BuildCurves3d, BRepLib_SameParameter, BRepLib_OrientClosedSolid,
-       BRepLib_EncodeRegularity,
-       GeomAbs_C0, GeomAbs_G1, GeomAbs_C1, GeomAbs_G2, GeomAbs_C2, GeomAbs_C3, GeomAbs_CN,
-       Continuity, IsUClosed, IsVClosed, IsUPeriodic, IsVPeriodic,
-       Geom_BSplineCurve, Geom_BezierCurve, GeomAPI_PointsToBSpline,
-       BRep_Tool_Curve, BRep_Tool_Surface,
-       NbPoints, Point, NbExtrema, IsParallel, LowerDistance, TotalLowerDistance,
-       LowerDistanceParameter, NearestPoint
-
-end # module OCC
+include("interop.jl")     # BREP string → NetgenGeometry bridge
 
 # MESHING3_RESULT enum values (returned as Int by MeshVolume / OptimizeVolume)
 const MESHING3_OK                  = 0
@@ -586,6 +424,7 @@ export load_step, load_iges, load_brep, load_geometry, generate_mesh,
        find_element, mesh_h_at_point,
        # partitioning / load-balancing data contract
        native_partition_hint,
+       occ_geometry_from_brep_string,
        NG_TET, NG_TRIG, NG_REFINE_H, NG_REFINE_P, NG_REFINE_HP,
        Segment, FaceDescriptor, LocalH, new_localh,
        STLParameters, STLGeometry, LoadSTL, load_stl,
