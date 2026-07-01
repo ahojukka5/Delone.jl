@@ -2,7 +2,7 @@
 
 julia_version = "1.12.6"
 manifest_format = "2.0"
-project_hash = "468375aaf27d8f4fd5dd31c3125f63dd26ed6f2d"
+project_hash = "26dc57aed76a605f6458d761fbb0c8641d8f7e75"
 
 [[deps.Artifacts]]
 uuid = "56f22d72-fd6d-98f1-02f0-08ddc0907c33"
@@ -81,6 +81,12 @@ deps = ["Artifacts", "FreeType2_jll", "JLLWrappers", "Libdl", "Libglvnd_jll", "X
 git-tree-sha1 = "b4d728dcd7f9c42862180d2ee881eeb4b471a02a"
 uuid = "baad4e97-8daa-5946-aac2-2edac59d34e1"
 version = "7.9.3+0"
+
+[[deps.OpenCascade]]
+deps = ["Artifacts", "CxxWrap", "Libdl", "OCCT_jll", "Zlib_jll"]
+path = "/Users/jukka/dev/NGSolveNetgen_jll/OpenCascade.jl"
+uuid = "7c4e8f2a-9b1d-4e6c-a3f8-2d5e6b7c8a9f"
+version = "0.1.0"
 
 [[deps.Preferences]]
 deps = ["TOML"]
