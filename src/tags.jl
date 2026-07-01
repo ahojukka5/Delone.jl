@@ -105,6 +105,12 @@ end
 Map sub-domain index → material name (`Mesh::GetMaterial`), for
 `1:GetNDomains(mesh)`. Keys match the values returned by [`cell_regions`](@ref)
 on a 3D mesh.
+
+!!! note "2D limitation"
+    In 2D, Netgen reports `GetNDomains == 0` through the current wrapper path, so
+    this returns an **empty** dict — 2D material *names* are not available here
+    (topological ids via [`cell_regions`](@ref) still work). No fake names are
+    invented.
 """
 function material_names(m)
     d = Dict{Int32,String}()
@@ -120,6 +126,13 @@ end
 Map face-descriptor index → boundary-condition name
 (`FaceDescriptor::GetBCName`), for `1:GetNFD(mesh)`. Keys match the values
 returned by [`boundary_regions`](@ref) on a 3D mesh.
+
+!!! note "2D limitation"
+    In 2D the keys here (face-descriptor indices) do **not** correspond to
+    [`boundary_regions`](@ref) values (segment indices), so 2D boundary *names*
+    cannot be reliably joined to boundary facets through this path. Use the
+    topological ids from [`boundary_regions`](@ref) in 2D; do not rely on 2D
+    names.
 """
 function boundary_names(m)
     d = Dict{Int32,String}()
