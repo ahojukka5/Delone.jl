@@ -70,10 +70,24 @@ end
     @test length(element_orders(m)) == Netgen.GetNSE(m)
 end
 
-@testset "partition contract: native_partition_hint returns documented nothing" begin
+@testset "partition contract: native_partition_hint (serial identity)" begin
     geom = load_step(STEP)
     m = generate_mesh(geom; maxh=40.0)
-    @test native_partition_hint(m) === nothing
+    hint = native_partition_hint(m)
+    np = Netgen.GetNP(m)
+    @test hint.global_vertex_ids == collect(1:np)
+    @test length(hint.distant_procs) == np
+    @test all(isempty, hint.distant_procs)
+end
+
+@testset "per-element region names (3D)" begin
+    geom = load_step(STEP)
+    m = generate_mesh(geom; maxh=40.0)
+    mats = material_names(m)
+    cr = cell_regions(m)
+    @test region_name_volume(m, 1) == mats[cr[1]]
+    br = boundary_regions(m)
+    @test region_name_surface(m, 1) == boundary_names(m)[br[1]]
 end
 
 @testset "2D tag/name behavior (documented current state, no invented names)" begin
