@@ -1,0 +1,49 @@
+using Netgen
+using Netgen.OCC
+using Test
+
+const STEP     = joinpath(@__DIR__, "fixtures", "frame.step")
+const CYLINDER = joinpath(@__DIR__, "fixtures", "cylinder.brep")  # unit cylinder, r=1, h=2
+
+@testset "Netgen.jl (CxxWrap, strict 1:1 names)" begin
+    # Netgen mesh core
+    include("mesh.jl")
+    include("refinement.jl")
+    include("hierarchy.jl")
+    include("geom2d.jl")
+    include("extras.jl")
+    include("stl.jl")
+    include("gprim.jl")
+    include("mesh2.jl")
+    include("ngx2.jl")
+    # OCC (split by topic)
+    include("occ_primitives.jl")
+    include("occ_booleans.jl")
+    include("occ_traversal.jl")
+    include("occ_io_tests.jl")
+    include("occ_props.jl")
+    include("occ_fillet.jl")
+    include("occ_topo2.jl")
+    include("occ_adaptor.jl")
+    include("occ_analysis.jl")
+    include("occ_sweep.jl")
+    include("occ_wire.jl")
+    include("occ_sewing.jl")
+    include("occ_extrema.jl")
+    include("occ_builder2.jl")
+    include("occ_intersect.jl")
+    include("occ_shape_analysis.jl")
+    include("occ_breptools.jl")
+    include("occ_conic.jl")
+    include("occ_mesh.jl")
+    include("occ_quadrics.jl")
+    include("occ_shapefix2.jl")
+    include("occ_toptools_list.jl")
+    include("occ_builders2.jl")
+    include("occ_fillet2.jl")
+    include("occ_thicksolid.jl")
+    include("occ_draft.jl")
+    include("occ_feat.jl")
+    include("occ_breplib.jl")
+    include("occ_geom.jl")
+end

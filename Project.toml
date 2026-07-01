@@ -1,0 +1,17 @@
+name = "Netgen"
+uuid = "0a3734f8-1dfd-4ffb-90f2-cbaa38dcac37"
+authors = ["Jukka Aho <ahojukka5@gmail.com>"]
+version = "0.1.0"
+
+[deps]
+Artifacts = "56f22d72-fd6d-98f1-02f0-08ddc0907c33"
+CxxWrap = "1f15a43c-97ca-5a2a-ae31-89f07a497df4"
+Libdl = "8f399da3-3557-5675-b5ff-fb832c97cbdb"
+OCCT_jll = "baad4e97-8daa-5946-aac2-2edac59d34e1"
+Zlib_jll = "83775a58-1f1d-513f-b197-d71354ab007a"
+
+[compat]
+CxxWrap = "0.17"
+OCCT_jll = "7.9"
+Zlib_jll = "1"
+julia = "1.6"
