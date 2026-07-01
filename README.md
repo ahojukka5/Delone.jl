@@ -155,7 +155,8 @@ handles are authoritative; snapshots are derived copies.
 
 Authoritative Netgen state that supports refinement requests *during* a
 simulation. Every mutating request (`request_*!`) bumps `generation(session)` and
-appends a new level while preserving access to all previous levels.
+(for h-refinement) appends a new level while preserving access to all previous
+levels.
 
 ```julia
 s = mesh_session(geom; maxh=0.5)     # level 1; generation 0
@@ -171,8 +172,21 @@ request_second_order!(s)                       # curve finest IN PLACE (no new l
 ```
 
 `request_marked_refinement!` takes `marked` indexed by the **current finest
-level's** volume elements. `request_second_order!` curves the current finest mesh
-in place (a p-type change to the same h-level), it does **not** append a level.
+level's** volume elements.
+
+**Live handles are expert-only for mutation.** `level_mesh(s, k)` (and its
+explicitly named alias `unsafe_level_mesh(s, k)`) return the *authoritative live*
+Netgen mesh handle. Mutating that handle directly (`refine!`, `bisect!`,
+`make_second_order!`, …) changes the session **without** bumping
+`generation(session)`, so snapshots can silently go stale. All simulation-time
+mutation should go through the `request_*!` functions. If you must mutate a level
+directly and keep generation tracking correct, use the callback helper:
+
+```julia
+mutate_level_mesh!(s, 2) do m       # bump_generation=true by default
+    Netgen.Compress(m)              # any in-place mesh mutation
+end                                  # -> returns the session; generation bumped
+```
 
 ### Snapshots
 
@@ -188,9 +202,27 @@ ts = transfer_snapshot(s, k)  # parent_nodes/elements/surface_elements for k-1 �
 hs = hierarchy_snapshot(s)    # all levels + all transfers + generation
 ```
 
-`transfer_snapshot(...).weights === nothing`: exact interpolation weights are not
-yet provided — a consumer should start with **topological 1/2–1/2 nodal
-interpolation** on the bisection parent-node map.
+A snapshot records the session `generation` at capture time. When
+`snapshot.generation != generation(session)` the snapshot is **stale** — the live
+hierarchy changed since it was taken (e.g. by a `request_*!`), and the consumer
+should re-snapshot.
+
+**Supported snapshot topology.** `level_snapshot` currently supports only pure
+**Tet4/Tri3** 3D meshes (tetrahedral volume, triangular boundary) and pure
+**Tri3/Segment** 2D meshes (triangular domain, segment boundary). Curved
+(second-order) simplices are accepted — they are still tetrahedra/triangles
+topologically (`GetNV == 4`/`3`). Mixed or non-simplex meshes (quads, prisms,
+hexes) throw a clear `ArgumentError` rather than being silently reinterpreted.
+Use `supported_snapshot_topology(mesh)` to test a mesh before snapshotting.
+
+### Transfer weights
+
+`transfer_snapshot(...).weights === nothing` — exact interpolation weights are not
+provided yet. This is **not** "unknown physical value": the accompanying field
+`weight_semantics == :topological_bisection_default` states the intended fallback
+explicitly — a consumer should use **topological 1/2–1/2 nodal interpolation** on
+the bisection parent-node map (each new node is the midpoint of its two parents).
+`transfer_weight_semantics(ts)` returns this symbol.
 
 ### Stable identity convention
 
@@ -198,8 +230,30 @@ All snapshot ids are **one-based**; `0` means "none". Parent-node columns of
 `(0, 0)` mark an **inherited** coarse vertex, and inherited coarse vertices keep
 their id on refined levels (so `coords(coarse) ≈ coords(fine)[:, 1:np_coarse]`).
 This holds for the current construction path (each level refines a copy of the
-previous finest level). See
-[`audit/NETGEN_LIVE_HIERARCHY_AND_PARTITION_CONTRACT_2026-07-01.md`](audit/NETGEN_LIVE_HIERARCHY_AND_PARTITION_CONTRACT_2026-07-01.md).
+previous finest level). The detailed internal audit is kept outside the
+repository.
+
+### Second-order curving is a same-level, snapshot-invalidating mutation
+
+`request_second_order!(session; order=2)` curves the **current finest** mesh
+**in place** — it is a p-type/topology change to the existing h-level, not a new
+level:
+
+- it does **not** append a level (`nlevels` is unchanged) and does **not** create
+  an h-refinement transfer;
+- it **increases the node count** (edge-midpoint nodes projected onto the true
+  geometry) and bumps `generation(session)`;
+- therefore any snapshot of that level taken *before* the call is **stale**
+  (`snapshot.generation != generation(session)`) — consumers must re-snapshot the
+  level afterward;
+- `transfer_snapshot` does **not** describe the added high-order nodes; a level
+  snapshot taken after curving reports the Tet4/Tri3 corner connectivity, and the
+  extra midpoint nodes appear in `coordinates` but are not referenced by
+  `volume_connectivity`;
+- this is fundamentally different from `request_uniform_refinement!` /
+  `request_marked_refinement!`, which append a new level with a parent map.
+
+Only `order == 2` is supported; other orders throw `ArgumentError`.
 
 ### Tags, regions, hp-readiness
 
@@ -208,15 +262,26 @@ volume_tetrahedra(mesh); surface_triangles(mesh)   # 3D
 triangles2d(mesh); segments2d(mesh)                # 2D (dimension-checked)
 cell_regions(mesh); boundary_regions(mesh)         # Netgen GetIndex region ids
 material_names(mesh); boundary_names(mesh)          # region id → name
+```
 
+**2D name limitation.** In 3D, `material_names` (via `GetNDomains`/`GetMaterial`)
+and `boundary_names` (via face descriptors) are reliable and their keys line up
+with `cell_regions` / `boundary_regions`. In **2D**, Netgen reports
+`GetNDomains == 0` through the current wrapper path, so `material_names(mesh)` is
+**empty**, and `boundary_names` keys (face-descriptor indices) do **not**
+correspond to `boundary_regions` values (segment indices). 2D `cell_regions` /
+`boundary_regions` (topological region ids) still work. No fake 2D names are
+invented; treat 2D material/boundary *names* as unavailable via this path.
+
+```julia
 element_orders(mesh); element_order(mesh)           # p-order readers (read-only)
 surface_element_orders(mesh); surface_element_order(mesh)
 hp_element_levels(mesh)                              # 3×ncells, -1 = not hp-refined
 ```
 
 hp helpers are **read-only readiness**: a consumer can ask what orders/hp-levels
-exist. Applying per-element p-refinement needs Netgen's exported order *setters*
-wrapped 1:1 (not done yet — see the audit doc).
+exist. Applying per-element p-refinement would need Netgen's exported order
+*setters* wrapped 1:1; that is deliberately **not** done in this package yet.
 
 ### Integration contract
 
