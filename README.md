@@ -7,7 +7,7 @@ The native bindings come from `NetgenCxxWrap_jll` (`libnetgen_cxxwrap`, a CxxWra
 module that wraps Netgen's C++ API 1:1). This package loads it via
 `CxxWrap.@wrapmodule`/`@initcxx` and adds idiomatic helpers. Geometry can come
 from a CAD file (STEP/IGES/BREP), be built programmatically with OpenCASCADE
-(`Netgen.OCC`), or be defined in 2D (`geom2d`/`csg2d`). Refinement is
+(`OpenCascade.jl` + BREP interop), or be defined in 2D (`geom2d`/`csg2d`). Refinement is
 **geometry-aware**: new boundary nodes are projected onto the true curved
 surface.
 
@@ -102,14 +102,10 @@ so `parent_nodes` is all that is needed to relate the two meshes.
 geom = load_step("model.step")          # also load_brep / load_iges
 geom = load_geometry("model.brep")      # dispatch on extension
 
-# OpenCASCADE modeling kernel, wrapped 1:1 (Netgen.OCC submodule — raw OCCT
-# class names, no helpers). Build a TopoDS_Shape, then wrap it as a geometry.
-using Netgen.OCC
-ax    = gp_Ax2(gp_Pnt(0.0,0.0,0.0), gp_Dir(0.0,0.0,1.0))
-shape = Shape(BRepPrimAPI_MakeCylinder(ax, 1.0, 2.0))    # also MakeBox/MakeSphere/...
-cut   = Shape(BRepAlgoAPI_Cut(shape,
-              Shape(BRepPrimAPI_MakeSphere(gp_Pnt(0.0,0.0,0.0), 0.6))))  # booleans
-geom  = OCCGeometry(cut)                                  # -> meshable geometry
+# 3D CAD modeling via OpenCascade.jl (separate package), then BREP interop:
+using OpenCascade, Netgen
+shape = cut(box(2, 2, 2), sphere(0.6; center=gp_Pnt(1, 1, 1)))
+geom  = occ_geometry_from_brep_string(to_brep_string(shape))
 
 # 2D CSG (geom2d): Circle / Rectangle with boolean ops + - *
 plate = Rectangle(-1.0,-1.0, 1.0,1.0, "plate", "outer")
@@ -395,16 +391,12 @@ ids and remote ranks.
 ## Status
 
 Wrapped and tested locally: module load + value types, mesh core + extraction,
-OCC import (STEP/IGES/BREP) **and** the OpenCASCADE modeling kernel wrapped 1:1
-(`gp_*`, `TopoDS_*`, `BRepPrimAPI_*`, `BRepBuilderAPI_*`, `BRepAlgoAPI_*`,
-`TopExp_Explorer`, `BRepTools`, `STEPControl`/`IGESControl`, `OCCGeometry`), 2D
-geom2d/csg2d (circle/rectangle + boolean CSG), geometry-aware uniform **and**
+OCC file import (STEP/IGES/BREP via nglib), BREP interop with OpenCascade.jl,
+2D geom2d/csg2d (circle/rectangle + boolean CSG), geometry-aware uniform **and**
 adaptive (marked-bisection) refinement, second-order curving, material/BC labels,
 the `Ngx_Mesh` multigrid hierarchy (levels + parent maps), mesh copy, and nested
-hierarchies. Verified on a curved unit cylinder/disk/sphere that refined nodes
-land exactly on the surface. The wrapped OCC surface is the modeling kernel; the
-~6500 internal OCCT headers (STEP/IGES schema, visualization, meshing internals)
-are out of scope. See `NetgenCxxWrap_jll/docs/WRAPPING_PLAN.md` for the full list.
+hierarchies. OCCT modeling bindings live in OpenCascade.jl / OpenCascadeCxxWrap_jll.
+See `OpenCascadeCxxWrap_jll/README.md` for the split boundary.
 
 ## Development
 
