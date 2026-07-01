@@ -144,6 +144,108 @@ Wrapped Netgen names are available directly (`Netgen.GetNP`, `Netgen.GetNE`,
 `Netgen.UpdateTopology`, `Netgen.GetTopology`, `Netgen.Refinement`,
 `Netgen.MeshingParameters`, …); the exported Julian layer composes them.
 
+## Live session + snapshots (consumer integration contract)
+
+Netgen.jl exposes the geometry-backed mesh hierarchy as a **live session** — the
+authoritative state a solver keeps during a simulation — plus **copied
+snapshots** for consumers. The two are distinct on purpose: the live Netgen mesh
+handles are authoritative; snapshots are derived copies.
+
+### Live session / handles
+
+Authoritative Netgen state that supports refinement requests *during* a
+simulation. Every mutating request (`request_*!`) bumps `generation(session)` and
+appends a new level while preserving access to all previous levels.
+
+```julia
+s = mesh_session(geom; maxh=0.5)     # level 1; generation 0
+nlevels(s)                           # 1
+finest(s); coarsest(s)               # live Netgen mesh handles
+level_mesh(s, k)                     # live handle for level k (authoritative)
+geometry(s); generation(s)
+
+# grow the live hierarchy as the solve/adapt loop proceeds:
+request_uniform_refinement!(s)                # append a uniformly refined level
+request_marked_refinement!(s, marked)         # append an adaptively bisected level
+request_second_order!(s)                       # curve finest IN PLACE (no new level)
+```
+
+`request_marked_refinement!` takes `marked` indexed by the **current finest
+level's** volume elements. `request_second_order!` curves the current finest mesh
+in place (a p-type change to the same h-level), it does **not** append a level.
+
+### Snapshots
+
+Copied, consumer-agnostic plain arrays. Mutating a snapshot never touches the
+live handles.
+
+```julia
+ls = level_snapshot(s, k)     # coordinates, volume/boundary connectivity,
+                              # cell_regions, boundary_regions, material_names,
+                              # boundary_names, element types, level, generation
+ts = transfer_snapshot(s, k)  # parent_nodes/elements/surface_elements for k-1 → k
+                              # (transfer_snapshot(s, 1) throws ArgumentError)
+hs = hierarchy_snapshot(s)    # all levels + all transfers + generation
+```
+
+`transfer_snapshot(...).weights === nothing`: exact interpolation weights are not
+yet provided — a consumer should start with **topological 1/2–1/2 nodal
+interpolation** on the bisection parent-node map.
+
+### Stable identity convention
+
+All snapshot ids are **one-based**; `0` means "none". Parent-node columns of
+`(0, 0)` mark an **inherited** coarse vertex, and inherited coarse vertices keep
+their id on refined levels (so `coords(coarse) ≈ coords(fine)[:, 1:np_coarse]`).
+This holds for the current construction path (each level refines a copy of the
+previous finest level). See
+[`audit/NETGEN_LIVE_HIERARCHY_AND_PARTITION_CONTRACT_2026-07-01.md`](audit/NETGEN_LIVE_HIERARCHY_AND_PARTITION_CONTRACT_2026-07-01.md).
+
+### Tags, regions, hp-readiness
+
+```julia
+volume_tetrahedra(mesh); surface_triangles(mesh)   # 3D
+triangles2d(mesh); segments2d(mesh)                # 2D (dimension-checked)
+cell_regions(mesh); boundary_regions(mesh)         # Netgen GetIndex region ids
+material_names(mesh); boundary_names(mesh)          # region id → name
+
+element_orders(mesh); element_order(mesh)           # p-order readers (read-only)
+surface_element_orders(mesh); surface_element_order(mesh)
+hp_element_levels(mesh)                              # 3×ncells, -1 = not hp-refined
+```
+
+hp helpers are **read-only readiness**: a consumer can ask what orders/hp-levels
+exist. Applying per-element p-refinement needs Netgen's exported order *setters*
+wrapped 1:1 (not done yet — see the audit doc).
+
+### Integration contract
+
+```
+Netgen.jl owns   geometry-backed mesh hierarchy handles, refinement requests,
+                 parent maps, stable ids, region/tag + hp-readiness data,
+                 and copied snapshots.
+Consumer owns    FE spaces, DOF numbering, matrix-free operators, error
+                 estimators, preconditioners, GMG assembly, domain
+                 decomposition, dynamic load balancing, and migration.
+```
+
+### Partitioning responsibility
+
+```
+Netgen.jl provides   geometry-backed mesh levels, parent maps, stable ids,
+                     region/tag data, and optional raw partition hints if
+                     available (native_partition_hint(mesh)).
+Consumer provides    PartitionGraph, cell/edge weights, METIS/ParMETIS backend
+                     selection, PartitionAssignment, distributed ownership,
+                     ghost/halo construction, dynamic repartitioning + migration.
+```
+
+Netgen.jl does **not** call METIS/ParMETIS and does **not** own partition policy.
+`native_partition_hint(mesh)` currently returns `nothing`: Netgen's partition
+data (`GetDistantProcs`, `GetGlobalVertexNum`) is MPI-only and the bound artifact
+is serial, so there is no native serial partition array to expose (documented,
+not invented).
+
 ## Status
 
 Wrapped and tested locally: module load + value types, mesh core + extraction,
