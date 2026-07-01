@@ -154,12 +154,18 @@ Marked-element bisection refinement (geometry-aware) — the adaptive-refinement
 path. Mark elements first with [`mark_for_refinement!`](@ref). Composes
 `GetRefinement(GetGeometry(m))` → `Refinement::Bisect` with a `BisectionOptions`
 whose `usemarkedelements` is enabled.
+
+Optional `refine_p` / `refine_hp` forward to `BisectionOptions` for p-only or
+hp marked bisection on a **new copied level** (via session helpers).
 """
-function bisect!(m; onlyonce::Bool=false, maxlevel::Integer=0)
+function bisect!(m; onlyonce::Bool=false, maxlevel::Integer=0,
+                 refine_p::Bool=false, refine_hp::Bool=false)
     opt = BisectionOptions()
     usemarkedelements!(opt, 1)
     onlyonce!(opt, onlyonce)
     maxlevel > 0 && maxlevel!(opt, Int(maxlevel))
+    refine_p && refine_p!(opt, true)
+    refine_hp && refine_hp!(opt, true)
     Bisect(GetRefinement(GetGeometry(m)), m, opt)
     return m
 end
@@ -361,6 +367,7 @@ end
 # audit/NETGEN_LIVE_HIERARCHY_AND_PARTITION_CONTRACT_2026-07-01.md.
 include("tags.jl")        # element extraction + region/tag helpers
 include("hp.jl")          # hp-adaptivity readiness (order/hp-level readers)
+include("fem.jl")         # curved maps, parent edge/face, periodic, codim names
 include("session.jl")     # MeshHierarchySession + refinement requests
 include("snapshots.jl")   # copied snapshot data contract for consumers
 include("partition.jl")   # partition/load-balancing data contract
@@ -549,6 +556,9 @@ export load_step, load_iges, load_brep, load_geometry, generate_mesh,
        mutate_level_mesh!, generation,
        request_uniform_refinement!, request_marked_refinement!,
        request_second_order!,
+       request_set_element_orders!, request_set_element_order!,
+       request_marked_p_refinement!, request_marked_hp_refinement!,
+       request_hp_refine!, request_split_alfeld!,
        # snapshot data contract (copies for downstream consumers)
        MeshLevelSnapshot, HierarchyTransferSnapshot, MeshHierarchySnapshot,
        level_snapshot, transfer_snapshot, hierarchy_snapshot,
@@ -556,9 +566,24 @@ export load_step, load_iges, load_brep, load_geometry, generate_mesh,
        # element extraction + region/tag helpers
        volume_tetrahedra, triangles2d, segments2d,
        cell_regions, boundary_regions, material_names, boundary_names,
-       # hp-adaptivity readiness
-       element_order, element_orders, surface_element_order,
-       surface_element_orders, hp_element_levels,
+       region_name_volume, region_name_surface, region_name_segment,
+       # hp-adaptivity (read + apply)
+       element_order, element_orders, element_orders_xyz,
+       surface_element_order, surface_element_orders, hp_element_levels,
+       set_element_order!, set_element_orders!, set_surface_element_order!,
+       set_surface_element_orders!, mark_for_ngx_refinement!, ngx_refine!,
+       hp_refine!, split_alfeld!,
+       hp_clusters_available,
+       cluster_rep_vertex, cluster_rep_edge, cluster_rep_face, cluster_rep_element,
+       cluster_rep_vertices, cluster_rep_elements,
+       # FEM geometry (curved maps, parent topology, periodic, codim names)
+       volume_element_transformation, surface_element_transformation,
+       domain_element_transformation, segment_element_transformation,
+       volume_element_transformations,
+       enable_topology_table!,
+       has_parent_edges, parent_edges, parent_faces, face_edges,
+       periodic_vertex_pairs, material_codim_name,
+       find_element, mesh_h_at_point,
        # partitioning / load-balancing data contract
        native_partition_hint,
        NG_TET, NG_TRIG, NG_REFINE_H, NG_REFINE_P, NG_REFINE_HP,
