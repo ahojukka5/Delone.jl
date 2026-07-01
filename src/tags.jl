@@ -141,3 +141,25 @@ function boundary_names(m)
     end
     return d
 end
+
+"""
+    region_name_volume(mesh, enr) -> String
+
+Per volume element material/region name (`Mesh::GetRegionName`, 1-based `enr`).
+"""
+region_name_volume(m, enr::Integer) = String(GetRegionNameVolume(m, Int(enr)))
+
+"""
+    region_name_surface(mesh, senr) -> String
+
+Per boundary triangle region name (3D, 1-based surface element index).
+"""
+region_name_surface(m, senr::Integer) = String(GetRegionNameSurface(m, Int(senr)))
+
+"""
+    region_name_segment(mesh, segnr) -> String
+
+Per boundary segment region name (2D/3D, 1-based segment index). Prefer this over
+[`boundary_names`](@ref) for joining names to [`boundary_regions`](@ref) in 2D.
+"""
+region_name_segment(m, segnr::Integer) = String(GetRegionNameSegment(m, Int(segnr)))
