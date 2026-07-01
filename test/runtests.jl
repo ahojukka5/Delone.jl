@@ -10,6 +10,8 @@ const CYLINDER = joinpath(@__DIR__, "fixtures", "cylinder.brep")  # unit cylinde
     include("mesh.jl")
     include("refinement.jl")
     include("hierarchy.jl")
+    include("session.jl")
+    include("tags_hp.jl")
     include("geom2d.jl")
     include("extras.jl")
     include("stl.jl")
