@@ -1,7 +1,59 @@
 # --- snapshot data contract --------------------------------------------------
 # Consumer-agnostic, plain-array COPIES of a live session. Snapshots are derived
 # views: mutating a snapshot never touches the authoritative live Netgen handles
-# (see session.jl). All ids are one-based (see the audit doc, §4).
+# (see session.jl). All ids are one-based.
+
+# --- supported topology guard -----------------------------------------------
+# The snapshot contract targets pure simplex meshes:
+#   3D: tetrahedral volume elements (Tet4/Tet10) + triangular boundary facets;
+#   2D: triangular domain elements + segment boundary facets.
+# GetNV counts corner vertices, so it is 4 (tet) / 3 (triangle) for both linear
+# and curved (second-order) simplices — curved meshes are still supported.
+
+"""
+    supported_snapshot_topology(mesh) -> Bool
+
+`true` if `mesh` is a topology [`level_snapshot`](@ref) supports: a pure
+tetrahedral (Tri3-bounded) 3D mesh, or a pure triangular (Segment-bounded) 2D
+mesh. Curved second-order simplices count as supported (a Tet10 is still a
+tetrahedron, `GetNV == 4`). Returns `false` for mixed/non-simplex meshes and
+unsupported dimensions.
+"""
+function supported_snapshot_topology(m)
+    d = Int(GetDimension(m))
+    if d == 3
+        for i in 1:GetNE(m)
+            GetNV(VolumeElement(m, i)) == 4 || return false
+        end
+        for i in 1:GetNSE(m)
+            GetNV(SurfaceElement(m, i)) == 3 || return false
+        end
+        return true
+    elseif d == 2
+        for i in 1:GetNSE(m)
+            GetNV(SurfaceElement(m, i)) == 3 || return false
+        end
+        for i in 1:GetNSeg(m)
+            GetNP(LineSegment(m, i)) >= 2 || return false
+        end
+        return true
+    else
+        return false
+    end
+end
+
+# Throwing guard used by the snapshot constructors.
+function _assert_supported_snapshot_topology(m)
+    d = Int(GetDimension(m))
+    d in (2, 3) || throw(ArgumentError(
+        "MeshLevelSnapshot currently supports pure Tet4/Tri3 3D meshes and pure " *
+        "Tri3/Segment 2D meshes; found unsupported mesh dimension $d"))
+    supported_snapshot_topology(m) || throw(ArgumentError(
+        "MeshLevelSnapshot currently supports pure Tet4/Tri3 3D meshes and pure " *
+        "Tri3/Segment 2D meshes; found a mesh with non-simplex or mixed elements " *
+        "(dim=$d)"))
+    return nothing
+end
 
 """
     MeshLevelSnapshot{Dim,T,I}
@@ -50,8 +102,12 @@ snapshot arrays, with `0` = none.
 - `parent_elements::Vector{I}` — per fine cell, its coarse parent (`0` if none).
 - `parent_surface_elements::Vector{I}` — per fine facet, its coarse parent.
 - `weights::Union{Nothing,Matrix{T}}` — exact interpolation weights, or `nothing`
-  when unavailable. When `nothing`, the consumer should use topological 1/2–1/2
-  nodal interpolation on the bisection parent-node map.
+  when not provided (the current state).
+- `weight_semantics::Symbol` — how to interpret absent weights. Currently always
+  `:topological_bisection_default`: `weights === nothing` does **not** mean
+  "unknown physical value" — it means the consumer should use topological
+  bisection parent-node interpolation, initially 1/2–1/2 (each new node is the
+  midpoint of its two parents). Read it via [`transfer_weight_semantics`](@ref).
 """
 struct HierarchyTransferSnapshot{I,T}
     level_from::Int
@@ -60,7 +116,17 @@ struct HierarchyTransferSnapshot{I,T}
     parent_elements::Vector{I}
     parent_surface_elements::Vector{I}
     weights::Union{Nothing,Matrix{T}}
+    weight_semantics::Symbol
 end
+
+"""
+    transfer_weight_semantics(snapshot) -> Symbol
+
+The transfer's weight-interpretation contract (`snapshot.weight_semantics`).
+Currently always `:topological_bisection_default` — see
+[`HierarchyTransferSnapshot`](@ref).
+"""
+transfer_weight_semantics(t::HierarchyTransferSnapshot) = t.weight_semantics
 
 """
     MeshHierarchySnapshot
@@ -79,16 +145,22 @@ end
 
 Copied plain-array snapshot of live level `k` (one-based). Coordinates,
 volume/boundary connectivity, region ids, material/boundary names, element types,
-level and session generation. `k` must be in `1:nlevels(session)`. Supports 2D
-and 3D meshes; other dimensions throw `ArgumentError`.
+level and session generation. `k` must be in `1:nlevels(session)`.
+
+Only pure Tet4/Tri3 (3D) and Tri3/Segment (2D) topologies are supported (curved
+second-order simplices included); anything else throws `ArgumentError` via
+[`supported_snapshot_topology`](@ref) rather than being silently reinterpreted.
+
+The returned snapshot records `generation(session)`; compare it against a later
+`generation(session)` to detect that the live level changed (e.g. after
+[`request_second_order!`](@ref)).
 """
 function level_snapshot(s::MeshHierarchySession, k::Integer)
     1 <= k <= nlevels(s) ||
         throw(ArgumentError("level $k out of range 1:$(nlevels(s))"))
     m = s.meshes[k]
+    _assert_supported_snapshot_topology(m)
     dim = Int(GetDimension(m))
-    dim in (2, 3) ||
-        throw(ArgumentError("level_snapshot: unsupported mesh dimension $dim"))
     X = points(m)                       # 3×np (Netgen stores 3 coords)
     coords = Matrix{Float64}(X[1:dim, :])
     if dim == 3
@@ -112,8 +184,9 @@ end
 
 Copied coarse→fine transition from level `k-1` to level `k` (parent-node,
 parent-element and parent-surface-element maps of live level `k`). `weights` is
-`nothing` (use topological 1/2–1/2 nodal interpolation). `k` must be ≥ 2 and
-≤ `nlevels(session)`; `transfer_snapshot(session, 1)` throws `ArgumentError`.
+`nothing` with `weight_semantics == :topological_bisection_default` (use
+topological 1/2–1/2 nodal interpolation on the parent-node map). `k` must be ≥ 2
+and ≤ `nlevels(session)`; `transfer_snapshot(session, 1)` throws `ArgumentError`.
 """
 function transfer_snapshot(s::MeshHierarchySession, k::Integer)
     k >= 2 || throw(ArgumentError(
@@ -127,7 +200,8 @@ function transfer_snapshot(s::MeshHierarchySession, k::Integer)
         parent_nodes(m),
         parent_elements(m),
         parent_surface_elements(m),
-        nothing)
+        nothing,
+        :topological_bisection_default)
 end
 
 """
