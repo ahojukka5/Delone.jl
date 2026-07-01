@@ -70,13 +70,53 @@ finest(s::MeshHierarchySession) = s.meshes[end]
 """
     level_mesh(session, k) -> live Netgen mesh handle for level `k` (1-based).
 
-Returns the **authoritative live** mesh handle, not a copy. Mutating it mutates
-the session's level. `k` must be in `1:nlevels(session)`.
+Returns the **authoritative live** mesh handle, not a copy. `k` must be in
+`1:nlevels(session)`.
+
+!!! warning "Expert-only mutation"
+    This is the live handle. Mutating it directly (`refine!`, `bisect!`,
+    `make_second_order!`, `Compress`, …) changes the session **without** bumping
+    `generation(session)`, so any snapshots taken beforehand silently go stale.
+    Prefer the `request_*!` functions for all simulation-time mutation, or
+    [`mutate_level_mesh!`](@ref) when you must mutate a level in place but keep
+    generation tracking correct. [`unsafe_level_mesh`](@ref) is an explicitly
+    named alias of this function.
 """
 function level_mesh(s::MeshHierarchySession, k::Integer)
     1 <= k <= nlevels(s) ||
         throw(ArgumentError("level $k out of range 1:$(nlevels(s))"))
     return s.meshes[k]
+end
+
+"""
+    unsafe_level_mesh(session, k) -> live Netgen mesh handle for level `k`.
+
+Explicitly named alias of [`level_mesh`](@ref). The `unsafe_` prefix flags that
+mutating the returned handle bypasses automatic `generation` tracking; reads are
+fine. Use [`mutate_level_mesh!`](@ref) or the `request_*!` functions for
+generation-safe mutation.
+"""
+unsafe_level_mesh(s::MeshHierarchySession, k::Integer) = level_mesh(s, k)
+
+"""
+    mutate_level_mesh!(f, session, k; bump_generation=true) -> session
+
+Generation-safe in-place mutation of level `k`. Calls `f(level_mesh(session, k))`
+for its side effects, then increments `generation(session)` when
+`bump_generation` is `true` (the default). Returns the **session** (not `f`'s
+result) so it composes with the other `!` functions; capture what you need inside
+`f`.
+
+This is the sanctioned way to apply an in-place mesh operation that is not one of
+the `request_*!` refinements while keeping snapshot staleness detection correct.
+Pass `bump_generation=false` only for a mutation that genuinely does not change
+what a snapshot would observe.
+"""
+function mutate_level_mesh!(f, s::MeshHierarchySession, k::Integer;
+                            bump_generation::Bool=true)
+    f(level_mesh(s, k))
+    bump_generation && (s.generation += 1)
+    return s
 end
 
 """geometry(session) -> the shared geometry backing every level."""
@@ -127,15 +167,28 @@ end
 """
     request_second_order!(session; order=2) -> session
 
-**Behavior (documented choice): curves the current finest mesh in place — it does
-NOT append a new level.** Second-order curving is a p-type change to the existing
-topological level (edge-midpoint nodes projected onto the true geometry), so it
-belongs to the same h-level rather than being a new refinement level. Increments
-`generation(session)` and records `metadata[:curved_order]`.
+**Same-level, snapshot-invalidating in-place curving** (documented choice): curves
+the current finest mesh in place — it does **NOT** append a new level. Second-order
+curving is a p-type/topology change to the existing h-level (edge-midpoint nodes
+projected onto the true geometry), not an h-refinement.
 
-Only `order == 2` is supported (via `Refinement::MakeSecondOrder`). Higher-order
-curving through `Mesh::BuildCurvedElements` / `Ngx_Mesh::Curve` is deferred; a
-call with `order != 2` throws `ArgumentError`.
+Semantics:
+
+- `nlevels(session)` is unchanged (no new level, no h-refinement transfer);
+- the finest level's **node count increases** and `generation(session)` is bumped;
+- any snapshot of the finest level taken *before* this call becomes **stale**
+  (`snapshot.generation != generation(session)`) — re-snapshot afterward;
+- [`transfer_snapshot`](@ref) does **not** describe the added high-order nodes; a
+  [`level_snapshot`](@ref) taken afterward reports the Tet4/Tri3 corner
+  connectivity, and the extra midpoint nodes appear in `coordinates` but are not
+  referenced by `volume_connectivity`;
+- this differs from [`request_uniform_refinement!`](@ref) /
+  [`request_marked_refinement!`](@ref), which append a new level with a parent map.
+
+Records `metadata[:curved_order]`. Only `order == 2` is supported (via
+`Refinement::MakeSecondOrder`); higher-order curving through
+`Mesh::BuildCurvedElements` / `Ngx_Mesh::Curve` is deferred, and a call with
+`order != 2` throws `ArgumentError`.
 """
 function request_second_order!(s::MeshHierarchySession; order::Integer=2)
     order == 2 || throw(ArgumentError(
