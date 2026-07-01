@@ -13,8 +13,8 @@ tree.
 | STL import | `load_stl` → `LoadSTL` |
 | 2D spline geometry file | `load_splinegeometry2d` |
 | 2D CSG | `Circle`, `Rectangle`, `CSG2d`, `geometry2d`, boolean `+` / `*` / `-` |
-| OCC programmatic 3D | `Netgen.OCC`: `BRepPrimAPI_*`, `BRepBuilderAPI_*`, `BRepAlgoAPI_*`, `OCCGeometry` |
-| OCC I/O | `BRepTools_Read/Write`, `STEPControl_*`, `IGESControl_*` |
+| OCC programmatic 3D | OpenCascade.jl → `occ_geometry_from_brep_string(to_brep_string(shape))` |
+| OCC I/O (modeling) | OpenCascade.jl: `BRepTools_*`, `STEPControl_*`, `IGESControl_*` |
 
 ## Mesh generation & core `Mesh` API
 
@@ -95,23 +95,16 @@ tree.
 | `surface_triangles` | boundary triangles (3D) or domain triangles (2D) |
 | `prolongation` | sparse-style parent data between hierarchy levels |
 
-## OpenCASCADE (`Netgen.OCC`)
+## OpenCASCADE interop
 
-Wrapped at **modeling-kernel** scope (not full OCCT):
-
-- **gp_*** value types (points, axes, transforms, lines, circles, planes, quadrics, …)
-- **TopoDS_*** shapes + `TopExp_Explorer`, `TopoDS_Iterator`, `TopTools_IndexedMapOfShape`
-- **BRepPrimAPI_*** primitives, **BRepBuilderAPI_*** construction, **BRepAlgoAPI_*** booleans
-- **BRepFilletAPI_***, **BRepOffsetAPI_*** (thick solid, pipe, draft, …)
-- **GProp_***, **Bnd_***, **BRepGProp_***, **BRepBndLib_***
-- **ShapeFix_***, **ShapeAnalysis_***, **BRepCheck_***, **BRepMesh_IncrementalMesh**
-- **Geom_Curve/Surface** handles, **GeomAPI_*** projection/extrema
-- Bridge: `OCCGeometry(shape)` → Netgen meshable geometry
-
-See `docs/API_COVERAGE.md` in the package tree for per-class OCCT counts.
+CAD modeling lives in **OpenCascade.jl** (`OpenCascadeCxxWrap_jll`). Netgen imports
+meshable geometry via **`occ_geometry_from_brep_string`** (in-memory BREP from
+`to_brep_string`). File import remains **`load_step` / `load_iges` / `load_brep`**
+(nglib). See OpenCascade.jl docs for the full OCCT surface.
 
 ## Test coverage
 
-The package test suite (`test/runtests.jl`, 790+ tests) exercises mesh core, OCC
-modeling, 2D CSG, refinement, hierarchy, session/snapshots, hp apply, FEM helpers,
-and tags/partition contracts against local fixtures (`test/fixtures/`).
+The package test suite (`test/runtests.jl`) exercises mesh core, BREP interop with
+OpenCascade.jl, 2D CSG, refinement, hierarchy, session/snapshots, hp apply, FEM
+helpers, and tags/partition contracts against local fixtures (`test/fixtures/`).
+OCCT modeling tests live in OpenCascade.jl.
