@@ -17,7 +17,7 @@ the upstream header or NGSolve docs are the reference for semantics and indexing
 
 ## OpenCASCADE (OCCT)
 
-`Netgen.OCC` wraps a **small modeling kernel** subset of OCCT — enough to build
+**OpenCascade.jl** wraps a **modeling kernel** subset of OCCT — enough to build
 primitives, booleans, fillets, and import/export BREP/STEP/IGES. It does **not**
 wrap the full OCCT documentation surface (~6800 headers).
 
@@ -28,7 +28,7 @@ wrap the full OCCT documentation surface (~6800 headers).
 | OCCT reference (classes) | [https://dev.opencascade.org/doc/refman/html/index.html](https://dev.opencascade.org/doc/refman/html/index.html) |
 
 Look up `gp_Pnt`, `TopoDS_Shape`, `BRepPrimAPI_MakeBox`, etc. in the OCCT refman
-when using `Netgen.OCC`.
+when using OpenCascade.jl. Mesh via `occ_geometry_from_brep_string(to_brep_string(shape))`.
 
 ## This repository
 
