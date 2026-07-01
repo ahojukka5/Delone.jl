@@ -26,6 +26,17 @@ MeshReport
 mesh_report
 ```
 
+## Native Netgen quality diagnostics
+
+Computed by Netgen's own C++ quality/topology kernel rather than the Julia-side
+proxy metrics above — see `NativeQualityReport`'s docstring for how the two
+scales differ (and don't compare them directly).
+
+```@docs
+NativeQualityReport
+native_quality
+```
+
 ## Meshability / diagnostics
 
 ```@docs

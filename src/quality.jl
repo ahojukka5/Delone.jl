@@ -10,6 +10,22 @@ _det3(v1, v2, v3) =
     MeshQualityReport
 
 Shape-quality summary computed from mesh coordinates and connectivity.
+
+Two distinct provenances are embedded here — don't confuse them:
+
+- Fields named plainly (`min_quality`, `max_edge_length`, ...) are
+  **Julia-side proxy metrics**: simplex radius-ratio-style scores computed
+  from node coordinates and connectivity alone (see the module comment at
+  the top of `quality.jl`). No FEM assembly, no Netgen quality kernel.
+- Fields prefixed `netgen_...` are **native Netgen diagnostics**, calling
+  straight into Netgen's own C++ quality/topology kernel (`Mesh::CalcTotalBad`,
+  `Mesh::ElementError`, `Mesh::CheckVolumeMesh`, `Mesh::CheckOverlappingBoundary`
+  via `Internals`). They use Netgen's own tet-badness functional (normalized
+  so a perfect/equilateral tet scores `1.0`; larger is worse — this is the
+  *opposite* sense from the Julia `*_quality` fields above, where `1.0` is
+  best and `0.0` is worst — do not compare the two scales directly).
+  Volume-mesh-only (3D); left at their neutral defaults (`NaN`/`0`/`false`)
+  with a warning for 2D meshes.
 """
 struct MeshQualityReport
     min_quality::Float64
@@ -23,6 +39,14 @@ struct MeshQualityReport
     max_edge_length::Float64
     aspect_ratio_summary::NamedTuple{(:min, :mean, :max), NTuple{3,Float64}}
     warnings::Vector{DiagnosticMessage}
+    # --- native Netgen diagnostics (see docstring above) --------------------
+    netgen_total_bad::Float64
+    netgen_min_element_badness::Float64
+    netgen_max_element_badness::Float64
+    netgen_mean_element_badness::Float64
+    netgen_volume_mesh_ok::Bool
+    netgen_boundary_ok::Bool
+    netgen_overlapping_boundary::Bool
 end
 
 function Base.show(io::IO, r::MeshQualityReport)
@@ -30,7 +54,9 @@ function Base.show(io::IO, r::MeshQualityReport)
           "min_quality=", round(r.min_quality; digits=4),
           ", mean=", round(r.mean_quality; digits=4),
           ", bad=", r.bad_element_count,
-          ", inverted=", r.inverted_element_count, ")")
+          ", inverted=", r.inverted_element_count,
+          ", netgen_total_bad=", round(r.netgen_total_bad; digits=2),
+          ", netgen_volume_mesh_ok=", r.netgen_volume_mesh_ok, ")")
 end
 
 const _QUALITY_BAD_THRESHOLD = 0.05
@@ -78,9 +104,121 @@ function _quantiles(v::Vector{Float64})
 end
 
 """
+    NativeQualityReport
+
+Native Netgen quality/topology diagnostics for a volume (3D) mesh, computed
+entirely by calls into Netgen's own C++ kernel via `Internals` — no Julia-side
+geometry recomputation. See [`native_quality`](@ref).
+
+Netgen's tet-badness functional (`CalcTetBadness`, exposed here via
+`Mesh::CalcTotalBad` / `Mesh::ElementError`) is normalized so a perfect
+(equilateral) tet scores `1.0`; larger values are worse and unbounded above.
+This is the *opposite* orientation from the Julia radius-ratio proxy used by
+[`MeshQualityReport`](@ref) (`1.0` = best, `0.0` = worst) — the two scales
+are not directly comparable.
+
+# Fields
+- `total_bad`: `Mesh::CalcTotalBad` — Netgen's own summed quality functional
+  across all volume elements (lower is better; `0` only for an empty mesh).
+- `min_element_badness`, `max_element_badness`, `mean_element_badness`:
+  per-element `Mesh::ElementError` (`CalcTetBadness`) summary statistics.
+- `volume_mesh_ok`: `Mesh::CheckVolumeMesh() == 0` (also drives
+  [`check_mesh`](@ref)`.volume_ok`). Note: as implemented in the Netgen build
+  this binds against, `CheckVolumeMesh` unconditionally returns `0` — a
+  nonzero-orientation element is only ever surfaced by Netgen printing
+  `ERROR: Element <i> has wrong orientation` to its own C-level stdout
+  stream, not via this boolean or any other Julia-visible signal. Treat
+  `volume_mesh_ok=true` as "no crash", not as "provably orientation-clean".
+- `boundary_ok`: `Mesh::CheckConsistentBoundary() == 0`.
+- `overlapping_boundary`: `Mesh::CheckOverlappingBoundary() != 0` — `true`
+  means Netgen detected self-intersecting/overlapping boundary elements.
+
+# Open elements / open segments (watertightness)
+
+Netgen also exposes `Mesh::FindOpenElements` / `Mesh::FindOpenSegments`,
+which would be the natural native "is this mesh watertight" check. They are
+intentionally **not** wrapped into a count here: they populate internal C++
+arrays (`Mesh::GetNOpenElements()`, `Mesh::GetNOpenSegments()`) that are not
+exposed through the current `Internals` CxxWrap bindings, and the only
+observable side effect from Julia is a `PrintMessage` at verbosity level 5
+(suppressed by default, and not a stable machine-readable string to scrape).
+Getting real open-element/open-segment counts requires extending the C++
+binding layer to expose `GetNOpenElements`/`GetNOpenSegments`/`OpenElements`
+— left as a documented open item, not silently faked here.
+"""
+struct NativeQualityReport
+    total_bad::Float64
+    min_element_badness::Float64
+    max_element_badness::Float64
+    mean_element_badness::Float64
+    volume_mesh_ok::Bool
+    boundary_ok::Bool
+    overlapping_boundary::Bool
+    warnings::Vector{DiagnosticMessage}
+end
+
+function Base.show(io::IO, r::NativeQualityReport)
+    print(io, "NativeQualityReport(",
+          "total_bad=", round(r.total_bad; digits=2),
+          ", mean_element_badness=", round(r.mean_element_badness; digits=4),
+          ", volume_mesh_ok=", r.volume_mesh_ok,
+          ", boundary_ok=", r.boundary_ok,
+          ", overlapping_boundary=", r.overlapping_boundary, ")")
+end
+
+const _NATIVE_QUALITY_EMPTY = NativeQualityReport(0.0, NaN, NaN, NaN, true, true, false, DiagnosticMessage[])
+
+"""
+    native_quality(mesh) -> NativeQualityReport
+
+Native Netgen quality/topology diagnostics (`CalcTotalBad`, `ElementError`,
+`CheckVolumeMesh`, `CheckConsistentBoundary`, `CheckOverlappingBoundary`),
+computed by Netgen's own C++ kernel rather than Julia-side proxies. See
+[`NativeQualityReport`](@ref) for field provenance and caveats. Volume-mesh
+only (3D); returns neutral defaults with a `:unsupported_dimension` warning
+for other dimensions.
+"""
+function native_quality(m)
+    warnings = DiagnosticMessage[]
+    d = mesh_dimension(m)
+    if d != 3
+        _append!(warnings, :warning, :unsupported_dimension,
+            "native quality diagnostics not computed for dimension $d (volume-mesh only)")
+        return NativeQualityReport(_NATIVE_QUALITY_EMPTY.total_bad,
+            _NATIVE_QUALITY_EMPTY.min_element_badness,
+            _NATIVE_QUALITY_EMPTY.max_element_badness,
+            _NATIVE_QUALITY_EMPTY.mean_element_badness,
+            _NATIVE_QUALITY_EMPTY.volume_mesh_ok,
+            _NATIVE_QUALITY_EMPTY.boundary_ok,
+            _NATIVE_QUALITY_EMPTY.overlapping_boundary,
+            warnings)
+    end
+
+    ne = Internals.GetNE(m)
+    mp = Internals.MeshingParameters()
+    if ne == 0
+        _append!(warnings, :warning, :empty_mesh, "no volume elements to measure")
+        return NativeQualityReport(0.0, NaN, NaN, NaN, true, true, false, warnings)
+    end
+
+    total_bad = Internals.CalcTotalBad(m, mp)
+    errs = [Internals.ElementError(m, i, mp) for i in 1:ne]
+    vol_ok = Internals.CheckVolumeMesh(m) == 0
+    bnd_ok = Internals.CheckConsistentBoundary(m) == 0
+    overlap = Internals.CheckOverlappingBoundary(m) != 0
+
+    return NativeQualityReport(
+        total_bad,
+        minimum(errs), maximum(errs), sum(errs) / length(errs),
+        vol_ok, bnd_ok, overlap, warnings)
+end
+
+"""
     quality(mesh) -> MeshQualityReport
 
-Compute simplex quality metrics from node coordinates and connectivity.
+Compute simplex quality metrics from node coordinates and connectivity, plus
+native Netgen quality/topology diagnostics (see the `netgen_...` fields on
+[`MeshQualityReport`](@ref) and [`native_quality`](@ref) for details).
 """
 function quality(m)
     warnings = DiagnosticMessage[]
@@ -117,8 +255,12 @@ function quality(m)
     else
         _append!(warnings, :warning, :unsupported_dimension,
             "quality metrics not computed for dimension $d")
+        nq = _NATIVE_QUALITY_EMPTY
         return MeshQualityReport(0, 0, 0, _quantiles(Float64[]), 0, 0, 0,
-            0, 0, (min=0.0, mean=0.0, max=0.0), warnings)
+            0, 0, (min=0.0, mean=0.0, max=0.0), warnings,
+            nq.total_bad, nq.min_element_badness, nq.max_element_badness,
+            nq.mean_element_badness, nq.volume_mesh_ok, nq.boundary_ok,
+            nq.overlapping_boundary)
     end
 
     isempty(qualities) && _append!(warnings, :warning, :empty_mesh, "no elements to measure")
@@ -127,13 +269,19 @@ function quality(m)
     ar = isempty(edge_lens) ? (min=0.0, mean=0.0, max=0.0) :
         (min=min_e / max_e, mean=(sum(edge_lens) / length(edge_lens)) / max_e, max=1.0)
 
+    nq = d == 3 ? native_quality(m) : _NATIVE_QUALITY_EMPTY
+    append!(warnings, nq.warnings)
+
     return MeshQualityReport(
         isempty(qualities) ? 0.0 : minimum(qualities),
         isempty(qualities) ? 0.0 : maximum(qualities),
         isempty(qualities) ? 0.0 : sum(qualities) / length(qualities),
         _quantiles(qualities),
         bad, inverted, zero_vol,
-        min_e, max_e, ar, warnings)
+        min_e, max_e, ar, warnings,
+        nq.total_bad, nq.min_element_badness, nq.max_element_badness,
+        nq.mean_element_badness, nq.volume_mesh_ok, nq.boundary_ok,
+        nq.overlapping_boundary)
 end
 
 Base.@deprecate mesh_quality(m) quality(m)

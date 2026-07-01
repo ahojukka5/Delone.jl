@@ -69,6 +69,36 @@ Documented in `NetgenCxxWrap_jll/docs/WRAPPING_PLAN.md`:
 
 Each follows the same strict 1:1 pattern as existing `BRepPrimAPI_*` wrappers.
 
+## Julian-layer gaps found during the local-sizing/quality audit
+
+These are wrapped-in-C++-but-not-usable-as-hoped findings from building
+[Local mesh sizing](@ref) and native quality diagnostics, kept here so they
+aren't rediscovered from scratch:
+
+- **`RestrictLocalH`/`SetLocalH`/`LoadLocalMeshSize` do not influence
+  `generate_mesh`.** They update a mesh's local-h field immediately (visible
+  to `mesh_h_at`), but `GenerateMesh` recomputes its own local-h field during
+  surface meshing and discards any pre-set restriction. `MeshOptions.local_size`
+  works around this via post-generation mark-and-bisect refinement instead
+  (`refine_near!`) — see [Local mesh sizing](@ref) for the full writeup,
+  including a 2D-vs-3D effectiveness difference.
+- **`FindOpenElements`/`FindOpenSegments` cannot report a count.** They run
+  without error but only populate internal C++ arrays not exposed through
+  `Internals`, with a suppressed verbosity-5 `PrintMessage` as the only
+  observable side effect. A real watertightness check needs new C++ bindings
+  (`GetNOpenElements`, `GetNOpenSegments`, ideally per-facet accessors).
+- **`STLParameters` cannot be threaded into STL meshing.** The wrapped
+  `STLGeometry::GenerateMesh` override copies a global C++ singleton
+  (`extern STLParameters stlparam`) rather than accepting a caller-supplied
+  object; the lower-level free function that upstream Netgen's own Python
+  bindings use instead (`STLMeshingDummy`) isn't exposed by
+  `NetgenCxxWrap_jll`. No Julian `STLOptions` API exists until that's wrapped.
+- **`generate_mesh`/`generate_mesh_result` is broken for STL geometry**
+  (separate from the point above): `Internals.SetGeometry` has no overload
+  accepting `STLGeometry` (only `NetgenGeometry`), so it throws `MethodError`
+  before meshing starts. Calling `Internals.GenerateMesh` directly (skipping
+  `SetGeometry`) works — a real bug in `generate_mesh_result`, not (yet) fixed.
+
 ## What Delone.jl does not do
 
 Even when upstream APIs exist, this package **does not**:

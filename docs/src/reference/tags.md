@@ -13,3 +13,15 @@ region_name_surface
 region_name_segment
 material_codim_name
 ```
+
+## Naming setters
+
+Write side of `material_names`/`boundary_names`, for naming boundaries and
+materials on an already loaded/generated mesh.
+
+```@docs
+set_material_name!
+set_boundary_name!
+rename_materials!
+rename_boundaries!
+```

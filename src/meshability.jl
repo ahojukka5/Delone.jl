@@ -1,4 +1,16 @@
 # --- pre-meshing diagnostics & suggestions ----------------------------------
+#
+# Watertightness (open boundary facets): Netgen's `Mesh::FindOpenElements` /
+# `Mesh::FindOpenSegments` are the natural native check ("N open boundary
+# elements"), but they were investigated and found not to be wireable into a
+# count today — they populate internal C++ arrays (`GetNOpenElements()`,
+# `GetNOpenSegments()`) that are not exposed through the current `Internals`
+# CxxWrap bindings, and their only Julia-visible side effect is a suppressed
+# (verbosity-5) PrintMessage, not a stable value. See `NativeQualityReport`'s
+# docstring in quality.jl for the full writeup. Exposing them for real needs
+# new bindings (`GetNOpenElements`, `GetNOpenSegments`, and ideally
+# `OpenElements()`/`GetOpenSegment(i)` for per-facet indices) added to the
+# C++ wrapper layer — out of scope for a Julia-only change.
 
 """
     MeshabilityReport <: AbstractReadinessReport
@@ -93,5 +105,22 @@ suggest_mesh_fixes(r::MeshGenerationResult, report::MeshReport) = begin
     report.tags.untagged_boundary_count > 0 &&
         _append!(sugs, :suggestion, :tag_boundaries,
             "$(report.tags.untagged_boundary_count) untagged boundary facets — check CAD BC names")
+    # --- native Netgen diagnostics (see MeshQualityReport's netgen_* fields) --
+    !report.quality.netgen_volume_mesh_ok &&
+        _append!(sugs, :suggestion, :netgen_orientation_check,
+            "Netgen's CheckVolumeMesh flagged one or more elements with wrong " *
+            "orientation (see stdout for \"ERROR: Element <i> has wrong " *
+            "orientation\" — Netgen prints this directly, it is not currently " *
+            "surfaced as a count/list; see NativeQualityReport docstring) — " *
+            "try improve_mesh! or coarsen/repair the source geometry")
+    !report.quality.netgen_boundary_ok &&
+        _append!(sugs, :suggestion, :netgen_boundary_check,
+            "Netgen's CheckConsistentBoundary reported an inconsistent " *
+            "boundary — check for open/non-manifold surfaces in the CAD input")
+    report.quality.netgen_overlapping_boundary &&
+        _append!(sugs, :suggestion, :netgen_overlap_check,
+            "Netgen's CheckOverlappingBoundary detected overlapping/" *
+            "self-intersecting boundary elements — heal the CAD geometry " *
+            "before remeshing")
     return sugs
 end

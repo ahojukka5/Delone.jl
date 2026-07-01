@@ -29,6 +29,7 @@ makedocs(
             "Mesh introspection & LLM contract" => "reference/mesh_introspection.md",
             "Validation, quality & meshability" => "reference/validation_quality.md",
             "Refinement" => "reference/refinement.md",
+            "Local mesh sizing" => "reference/local_sizing.md",
             "Multigrid hierarchy" => "reference/hierarchy.md",
             "Live session" => "reference/session.md",
             "Snapshots & Oodi readiness" => "reference/snapshots.md",

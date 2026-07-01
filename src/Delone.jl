@@ -42,6 +42,7 @@ include("tag_report.jl")
 include("mesh_report.jl")
 include("generation_result.jl")
 include("refinement.jl")
+include("local_sizing.jl")
 include("hierarchy.jl")
 include("meshability.jl")
 include("export_mesh.jl")
@@ -90,6 +91,7 @@ export MeshingTarget, OodiImportTarget, GeometricMultigridTarget
 # --- mesh validation & quality reports --------------------------------------
 export MeshValidationReport, isvalid, topology_report
 export MeshQualityReport, quality, mesh_quality
+export NativeQualityReport, native_quality
 export MeshTagReport, tag_report, boundary_tags, region_tags
 export has_boundary_tag, has_region_tag
 export MeshReport, mesh_report
@@ -103,6 +105,11 @@ export check_mesh, improve_mesh!, optimize_volume!, mesh_bounding_box
 # --- refinement -------------------------------------------------------------
 export refine!, mark_for_refinement!, bisect!, make_second_order!
 export RefinementResult, refine_session!
+
+# --- local mesh sizing --------------------------------------------------------
+export LocalSizeField, local_size_field, field_h, field_min_h
+export restrict_h!, restrict_h_at!, mesh_h_at, set_global_h!, set_minimal_h!
+export refine_near!, local_size_requests
 
 # --- multigrid hierarchy ----------------------------------------------------
 export copy_mesh, MeshHierarchy, coarse_hierarchy, uniform_hierarchy, mesh_hierarchy
@@ -142,6 +149,7 @@ export cell_regions, boundary_regions
 export material_names, boundary_names
 export region_name_volume, region_name_surface, region_name_segment
 export material_codim_name
+export set_material_name!, set_boundary_name!, rename_materials!, rename_boundaries!
 
 # --- hp-adaptivity ----------------------------------------------------------
 export element_order, element_orders, element_orders_xyz

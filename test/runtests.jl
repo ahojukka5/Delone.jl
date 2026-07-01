@@ -59,6 +59,7 @@ const CYLINDER = joinpath(@__DIR__, "fixtures", "cylinder.brep")  # unit cylinde
     include("mesh_api.jl")
     include("llm_feedback.jl")
     include("refinement.jl")
+    include("local_sizing.jl")
     include("hierarchy.jl")
     include("session.jl")
     include("tags_hp.jl")
@@ -68,7 +69,9 @@ const CYLINDER = joinpath(@__DIR__, "fixtures", "cylinder.brep")  # unit cylinde
     include("geom2d.jl")
     include("extras.jl")
     include("stl.jl")
+    include("boundary_naming_stl.jl")
     include("gprim.jl")
     include("mesh2.jl")
     include("ngx2.jl")
+    include("native_quality.jl")
 end

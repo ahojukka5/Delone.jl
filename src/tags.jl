@@ -163,3 +163,72 @@ Per boundary segment region name (2D/3D, 1-based segment index). Prefer this ove
 [`boundary_names`](@ref) for joining names to [`boundary_regions`](@ref) in 2D.
 """
 region_name_segment(m, segnr::Integer) = String(Internals.GetRegionNameSegment(m, Int(segnr)))
+
+# --- naming setters (write side of material_names / boundary_names) --------
+# Mirrors the getter pattern above. `Internals.GetFaceDescriptor` returns a
+# *const* reference (cannot be mutated in place); `Internals.GetFaceDescriptorMut`
+# returns the mutable reference required for `Internals.SetBCName` to persist
+# back into the mesh — verified empirically (see test/boundary_naming_stl.jl).
+
+"""
+    set_material_name!(mesh, i::Integer, name::AbstractString) -> mesh
+
+Set the material name of sub-domain index `i` (`1:Internals.GetNDomains(mesh)`,
+`Mesh::SetMaterial`). Symmetric with [`material_names`](@ref). Errors with
+`ArgumentError` if `i` is out of range.
+"""
+function set_material_name!(m, i::Integer, name::AbstractString)
+    nd = Internals.GetNDomains(m)
+    1 <= i <= nd || throw(ArgumentError(
+        "set_material_name!: index $i out of range 1:$nd"))
+    Internals.SetMaterial(m, Int(i), String(name))
+    return m
+end
+
+"""
+    set_boundary_name!(mesh, i::Integer, name::AbstractString) -> mesh
+
+Set the boundary-condition name of face-descriptor index `i`
+(`1:Internals.GetNFD(mesh)`), via `Internals.GetFaceDescriptorMut` +
+`Internals.SetBCName`. Symmetric with [`boundary_names`](@ref). Errors with
+`ArgumentError` if `i` is out of range.
+
+!!! note
+    Use [`set_boundary_name!`](@ref), not `Internals.GetFaceDescriptor` +
+    `Internals.SetBCName` directly — `GetFaceDescriptor` returns a `const`
+    reference, so `Internals.SetBCName` on it throws a loud `MethodError`
+    (verified empirically) rather than persisting; only the
+    `GetFaceDescriptorMut` path mutates the live mesh.
+"""
+function set_boundary_name!(m, i::Integer, name::AbstractString)
+    nfd = Internals.GetNFD(m)
+    1 <= i <= nfd || throw(ArgumentError(
+        "set_boundary_name!: index $i out of range 1:$nfd"))
+    fd = Internals.GetFaceDescriptorMut(m, Int(i))
+    Internals.SetBCName(fd, String(name))
+    return m
+end
+
+"""
+    rename_materials!(mesh, names::AbstractDict{<:Integer,<:AbstractString}) -> mesh
+
+Bulk-apply [`set_material_name!`](@ref) for each `index => name` pair.
+"""
+function rename_materials!(m, names::AbstractDict{<:Integer,<:AbstractString})
+    for (i, name) in names
+        set_material_name!(m, i, name)
+    end
+    return m
+end
+
+"""
+    rename_boundaries!(mesh, names::AbstractDict{<:Integer,<:AbstractString}) -> mesh
+
+Bulk-apply [`set_boundary_name!`](@ref) for each `index => name` pair.
+"""
+function rename_boundaries!(m, names::AbstractDict{<:Integer,<:AbstractString})
+    for (i, name) in names
+        set_boundary_name!(m, i, name)
+    end
+    return m
+end

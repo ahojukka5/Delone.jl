@@ -4,6 +4,45 @@ All notable changes to Delone.jl are documented in this file.
 
 ## [Unreleased]
 
+### Added (roadmap Phase 2 — functionality gaps)
+- **Local mesh sizing** (`src/local_sizing.jl`): `LocalSizeField`,
+  `local_size_field`, `restrict_h!`, `restrict_h_at!`, `mesh_h_at`,
+  `set_global_h!`, `set_minimal_h!`, `refine_near!`, and a `local_size` option
+  on `MeshOptions`. Netgen's `RestrictLocalH`/`SetLocalH` were investigated
+  and found not to feed back into `generate_mesh` in this build, so local
+  sizing is implemented as coarse generation followed by geometric
+  mark-and-bisect refinement near the requested points — verified to work in
+  3D; in 2D `bisect!` refines uniformly regardless of marking, so
+  `local_size` only achieves uniform refinement there (documented, warned).
+- **Native Netgen quality diagnostics**: `NativeQualityReport`,
+  `native_quality`, and new `netgen_*`-prefixed fields on `MeshQualityReport`
+  (`CalcTotalBad`/`ElementError`-based, distinct scale from the existing
+  Julia-side proxy metrics — see the docstring). `suggest_mesh_fixes` now
+  surfaces orientation/boundary/overlap issues Netgen's own kernel detects.
+  `FindOpenElements`/`FindOpenSegments` were investigated and found not
+  exposable as a count with the current C++ bindings (documented as an open
+  item needing new bindings, not faked).
+- **Pre-meshing boundary/material naming**: `set_material_name!`,
+  `set_boundary_name!`, `rename_materials!`, `rename_boundaries!` in
+  `src/tags.jl` — the write side of the existing `material_names`/
+  `boundary_names` queries.
+- New API reference page `docs/src/reference/local_sizing.md`, and additions
+  to `reference/validation_quality.md` / `reference/tags.md`.
+
+### Investigated, not shipped
+- `STLParameters` (STL feature-angle meshing controls): confirmed
+  unreachable from the wrapped `STLGeometry::GenerateMesh` — it copies a
+  global C++ singleton rather than accepting a caller-supplied object, and
+  the lower-level free function that would (`STLMeshingDummy`) isn't exposed
+  by `NetgenCxxWrap_jll`. No `STLOptions` API was added; needs a new C++
+  binding upstream first.
+
+### Known bug found (not yet fixed)
+- `generate_mesh`/`generate_mesh_result` is broken end-to-end for STL
+  geometry: `Internals.SetGeometry` has no overload accepting `STLGeometry`
+  (only `NetgenGeometry`), so it throws `MethodError` before meshing starts.
+  Calling `Internals.GenerateMesh` directly (skipping `SetGeometry`) works.
+
 ### Added
 - Full Documenter.jl API reference (`docs/src/reference/*.md`, 13 pages,
   `@docs` blocks grouped by topic to match `src/Delone.jl`'s export sections)

@@ -160,6 +160,18 @@ function generate_mesh_result(geom, opts::MeshOptions)
         return MeshGenerationResult(false, m, opts, diag, time() - t0, warnings)
     end
 
+    if !isempty(opts.local_size)
+        try
+            for req in local_size_requests(opts)
+                refine_near!(m, req.point; radius=req.radius, levels=req.levels)
+            end
+        catch e
+            diag.failure_stage = :local_sizing
+            _append!(diag.messages, :error, :local_size_failed, sprint(showerror, e))
+            return MeshGenerationResult(false, m, opts, diag, time() - t0, warnings)
+        end
+    end
+
     if opts.optimize && mesh_dimension(m) == 3
         mp = to_meshing_parameters(opts)
         status = Internals.MeshVolume(mp, m)
