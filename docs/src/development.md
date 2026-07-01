@@ -4,7 +4,14 @@
 
 - Julia ≥ 1.6
 - CMake and a C++17 compiler
-- Artifacts: `NGSolveNetgen_jll` (Netgen binaries), `OCCT_jll`, `libcxxwrap-julia`
+- Artifacts: `NGSolveNetgen_jll`, `OCCT_jll` (BREP bridge), `libcxxwrap-julia`
+- For BREP interop tests: sibling `OpenCascade.jl` (auto-`Pkg.develop` from `test/runtests.jl`)
+
+Build OpenCascade's wrapper first if testing CAD interop:
+
+```julia
+julia --project=../OpenCascade.jl ../OpenCascade.jl/gen/build_local.jl
+```
 
 `NetgenCxxWrap_jll` is not registered in General yet; the native wrapper library
 is built locally and pinned in `Artifacts.toml`.
@@ -49,7 +56,9 @@ julia --project=docs -e 'using Pkg; Pkg.instantiate()'
 |------|------|
 | `Netgen.jl/src/` | Julian layer + `include` of helper modules |
 | `Netgen.jl/gen/build_local.jl` | Local CxxWrap build script |
-| `NetgenCxxWrap_jll/bundled/src/` | 1:1 C++ wrappers (`netgen_*.cpp`, `occ_*.cpp`) |
+| `NetgenCxxWrap_jll/bundled/src/` | Netgen 1:1 C++ wrappers + `netgen_occ_bridge.cpp` |
+| `OpenCascadeCxxWrap_jll/bundled/src/` | OCCT 1:1 C++ wrappers (`occ_*.cpp`) |
+| `OpenCascade.jl/` | CAD modeling Julia package |
 | `netgen/` (sibling repo) | Upstream reference — **do not patch** |
 | `NGSolveNetgen_jll/` | Upstream JLL reference — **do not patch** |
 
