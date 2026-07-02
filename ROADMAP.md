@@ -339,11 +339,46 @@ registration.
 
 ### Definition of done for "polished"
 
-- [ ] A user can do local refinement near a feature without touching `Internals`
-- [ ] A mesh can enter and leave Delone as plain arrays
-- [ ] Docs site has a tutorial, topic guides, and a complete generated API
-      reference, built and deployed by CI with doctests green
-- [ ] `checkdocs=:exported` and Aqua pass
-- [ ] One blessed name per concept (no `try_`/alias ambiguity)
-- [ ] LICENSE, CHANGELOG, CI badges in README
-- [ ] Registration blocked only by upstream JLL availability, nothing local
+**Status as of 2026-07-02: Phases 1-4 executed and committed** (`3526837`,
+`46fc6cf`, `1e43fdf`, `310ab27`, `cc58928`; 420 → 693 passing tests). See
+per-item status below — most items are done; a handful are intentionally
+still open (upstream-blocked, deliberately deferred, or lower-priority
+polish not yet scheduled).
+
+- [x] A user can do local refinement near a feature without touching `Internals`
+      — `refine_near!`/`MeshOptions.local_size` (3D; 2D uniform-only, a real
+      fix path via `ngx_refine!` is identified but not yet wired in).
+- [x] A mesh can enter and leave Delone as plain arrays — `mesh_from_arrays`
+      (3D only; 2D deferred).
+- [x] Docs site has a tutorial, topic guides, and a complete generated API
+      reference, built and deployed by CI with doctests green — `deploydocs()`
+      is wired but **publishing still needs a human to add the
+      `DOCUMENTER_KEY` repo secret**; local builds are green.
+- [x] `checkdocs=:exported` and Aqua pass
+- [x] One blessed name per concept (no `try_`/alias ambiguity) — for the 3
+      pairs originally flagged. `num_levels`/`nlevels` was deliberately left
+      as-is (cross-referencing docstrings judged sufficient over a rename).
+- [x] LICENSE, CHANGELOG — [ ] **CI badges in README are not added.**
+- [ ] **Registration blocked only by upstream JLL availability, nothing
+      local** — not yet true: `Delone.jl`/`Monge.jl` still use local-path
+      `[sources]` and a locally-built `libnetgen_cxxwrap` artifact. This is
+      the D4 registration track, correctly still open (see D4 above) — it
+      needs real Yggdrasil PRs and CI runs, not something to finish in a
+      coding session.
+
+**Other items still open, not covered by the checklist above:**
+- A5 STL parameter control — investigated, confirmed **genuinely unreachable**
+  with current bindings (`STLParameters` can't reach `STLGeometry::GenerateMesh`);
+  not a "not done yet," a real upstream blocker.
+- A7 Periodic identifications (`Identifications` class) — deliberately
+  deferred per the original plan; still open, no consumer need yet.
+- B2 Return-type polish (Int32→Int decision, tuple→NamedTuple conversions
+  for `mesh_bounding_box`/`connectivity`/`element_orders_xyz`) — not started.
+- B5 `DeloneWriteVTKExt`/`DeloneGeometryBasicsExt`/Tables.jl views — deferred;
+  only `DeloneMakieExt` shipped.
+- D3 test additions — export-format tests are still smoke-only (file exists +
+  a keyword string check, not real content/cell-count parsing); no systematic
+  `ArgumentError`-branch sweep; `mesh_from_arrays`'s round-trip test verified
+  raw extraction-function output, not literally `level_snapshot`/
+  `hierarchy_snapshot` objects (equivalent in practice, not identical to the
+  original wording).
