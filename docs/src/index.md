@@ -29,7 +29,7 @@ Delone.jl           Julian helpers + live hierarchy / snapshot contract
 | Area | Summary |
 |------|---------|
 | **Geometry** | Load STEP/IGES/BREP/STL; build 2D CSG (`Circle`, `Rectangle`); import 3D shapes from OpenCascade.jl via BREP strings. |
-| **Meshing** | `generate_mesh(geom; maxh=…)`; extract points and connectivity; topology queries. |
+| **Meshing** | `generate_mesh(geom; maxh=…)`; extract points and connectivity; topology queries. Optional alternative backend: `generate_gmsh_mesh` (Gmsh, weakdep extension). |
 | **Refinement** | Uniform and marked bisection; geometry-aware boundary projection; second-order curving. |
 | **Hierarchy** | `Ngx_Mesh` parent maps; `MeshHierarchySession` with refinement requests; copied snapshots for consumers. |
 | **hp / FEM metadata** | Read and apply element orders; hp refinement hooks; curved element maps; parent edge/face topology. |

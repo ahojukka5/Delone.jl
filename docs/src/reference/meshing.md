@@ -24,3 +24,13 @@ mesh_from_arrays
 add_volume_element!
 add_surface_element!
 ```
+
+## Alternative backend: Gmsh
+
+Optional — active once the registered `Gmsh` package is loaded (see
+[Building geometry](@ref "Building geometry") for a worked example and
+[Package extensions](@ref "Package extensions") for the general mechanism).
+
+```@docs
+generate_gmsh_mesh
+```

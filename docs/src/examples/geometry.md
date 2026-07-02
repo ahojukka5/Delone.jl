@@ -116,6 +116,36 @@ from it), use [`faces_on_plane`](@ref) to inspect face indices directly if
 [`identify_periodic_box!`](@ref) can't find a single unambiguous face per
 side (a boolean cut can split one outer face into several fragments).
 
+## Alternative backend: Gmsh
+
+Delone.jl's default backend is Netgen (`Delone.Netgen`), but it can
+optionally use [Gmsh](https://gmsh.info/) as a second meshing backend for
+STEP/IGES/BREP files. Unlike Netgen, Gmsh needs no hand-written binding
+layer — `gmsh_jll` ships a complete, official Julia API, safely wrapped by
+the registered `Gmsh` Julia package — so this is a lightweight, optional
+[package extension](@ref "Package extensions"): loading `Gmsh` alongside
+`Delone` activates `generate_gmsh_mesh`.
+
+<!-- not converted to @example: Gmsh is a large optional dependency (Cairo,
+     FLTK, X11, its own OCCT, ...) not installed in the docs build
+     environment by design — this mirrors export.md's package-extension
+     documentation style. -->
+```julia
+using Delone, Gmsh
+
+s = generate_gmsh_mesh("model.step"; maxh=0.5)   # -> MeshLevelSnapshot{3,Float64,Int32}
+size(s.coordinates, 2), size(s.volume_connectivity, 2)
+```
+
+`generate_gmsh_mesh` takes a file path (not an in-memory geometry object —
+Gmsh's own API is file-based) and returns a [`MeshLevelSnapshot`](@ref)
+directly, so it composes with everything that already accepts one:
+`export_vtk`/`export_vtu`, `GeometryBasics.Mesh`, Makie plotting. v1 supports
+a pure-tetrahedral 3D volume mesh only (Gmsh's default for a plain CAD
+import); region/boundary names and 2D meshing are not yet wired up. See
+[`generate_gmsh_mesh`](@ref)'s docstring for the full contract, including
+why it throws `ArgumentError` rather than a raw Gmsh error on bad input.
+
 ## Choosing a workflow
 
 | Goal | Suggested path |

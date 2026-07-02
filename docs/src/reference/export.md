@@ -15,9 +15,9 @@ mesh_previews
 
 ## Package extensions
 
-Two optional, weakdep-gated extensions add real ecosystem integration beyond
-the dependency-free formats above — see `Project.toml`'s `[weakdeps]`/
-`[extensions]`:
+Optional, weakdep-gated extensions add real ecosystem integration (or, for
+Gmsh, an entire alternative backend) beyond the dependency-free formats
+above — see `Project.toml`'s `[weakdeps]`/`[extensions]`:
 
 - **`DeloneMakieExt`** (`ext/DeloneMakieExt.jl`, active once `Makie` is
   loaded) — `Makie.mesh`/`Makie.mesh!`/`Makie.plot` recipes for
@@ -30,3 +30,7 @@ the dependency-free formats above — see `Project.toml`'s `[weakdeps]`/
   `GeometryBasics.Mesh(::MeshHierarchySnapshot)`, bridging into the wider
   Julia visualization/geometry ecosystem (composes with `DeloneMakieExt`:
   `Makie.mesh(GeometryBasics.Mesh(snapshot))` works once both are loaded).
+- **`DeloneGmshExt`** (`ext/DeloneGmshExt.jl`, active once the registered
+  `Gmsh` package is loaded) — [`generate_gmsh_mesh`](@ref), an alternative
+  meshing backend to Netgen for STEP/IGES/BREP files; see
+  [Building geometry](@ref "Building geometry") for a worked example.
