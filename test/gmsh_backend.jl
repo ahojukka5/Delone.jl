@@ -56,5 +56,29 @@
         m_b = generate_mesh(geom_b; maxh=60.0)
         @test size(s_b.coordinates, 2) > 0
         @test num_nodes(m_b) > 0
+
+        # BREP-string bridge (Monge -> Gmsh), the Gmsh-backend analogue of
+        # occ_geometry_from_brep_string's bridge for Netgen.
+        brep = to_brep_string(box(1.0, 1.0, 1.0))
+        sb = gmsh_mesh_from_brep_string(brep; maxh=0.3)
+        @test sb isa MeshLevelSnapshot{3,Float64,Int32}
+        @test size(sb.coordinates, 2) > 0
+        @test isapprox(vec(minimum(sb.coordinates, dims=2)), [0.0, 0.0, 0.0]; atol=1e-8)
+        @test isapprox(vec(maximum(sb.coordinates, dims=2)), [1.0, 1.0, 1.0]; atol=1e-8)
+        @test_throws ArgumentError gmsh_mesh_from_brep_string("not a real brep")
+
+        # generate_mesh(...; backend=:gmsh) selector
+        s_sel = generate_mesh(STEP; maxh=60.0, backend=:gmsh)
+        @test s_sel isa MeshLevelSnapshot{3,Float64,Int32}
+        @test size(s_sel.coordinates, 2) > 0
+        @test_throws ArgumentError generate_mesh(STEP; maxh=60.0, backend=:gmsh, result=true)
+        @test_throws ArgumentError generate_mesh(
+            STEP; options=MeshOptions(maxh=60.0), backend=:gmsh)
+        @test_throws ArgumentError generate_mesh(geom; maxh=60.0, backend=:gmsh)
     end
+end
+
+@testset "generate_mesh: unknown backend (always runs, no Gmsh needed)" begin
+    geom = load_step(STEP)
+    @test_throws ArgumentError generate_mesh(geom; maxh=60.0, backend=:bogus)
 end
