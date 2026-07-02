@@ -146,5 +146,11 @@ suggest_mesh_fixes(r::MeshGenerationResult, report::MeshReport) = begin
             "Netgen's CheckOverlappingBoundary detected overlapping/" *
             "self-intersecting boundary elements — heal the CAD geometry " *
             "before remeshing")
+    report.quality.netgen_open_element_count > 0 &&
+        _append!(sugs, :suggestion, :netgen_open_boundary,
+            "$(report.quality.netgen_open_element_count) boundary facets are " *
+            "unpaired (Netgen's FindOpenElements) — the volume mesh's boundary " *
+            "is not watertight; check for gaps/non-manifold surfaces in the " *
+            "source geometry")
     return sugs
 end

@@ -100,5 +100,37 @@ end
     # On this well-formed fixture at a coarse maxh, Netgen's native checks
     # should all come back clean, so no netgen_* suggestion codes fire.
     @test !any(s -> s.code in (:netgen_orientation_check, :netgen_boundary_check,
-                               :netgen_overlap_check), sugs)
+                               :netgen_overlap_check, :netgen_open_boundary), sugs)
+end
+
+@testset "open_element_count / open_segment_count (real watertightness signal)" begin
+    geom = load_step(STEP)
+    m = generate_mesh(geom; maxh=40.0)
+    nq = native_quality(m)
+    # A properly generated, closed volume mesh has no unpaired boundary facets.
+    @test nq.open_element_count == 0
+    @test nq.open_element_count isa Int
+    @test nq.open_segment_count isa Int
+    q = quality(m)
+    @test q.netgen_open_element_count == nq.open_element_count
+    @test q.netgen_open_segment_count == nq.open_segment_count
+
+    # A hand-built tet with NO surface elements is maximally "open": all 4
+    # faces are unpaired. This is the real, verified behavior of
+    # GetNOpenElements (not assumed) -- confirms open_element_count is a
+    # meaningful watertightness signal, not a decorative field.
+    m2 = I.new_mesh()
+    p1 = I.AddPoint(m2, I.Point3d(0.0, 0.0, 0.0))
+    p2 = I.AddPoint(m2, I.Point3d(1.0, 0.0, 0.0))
+    p3 = I.AddPoint(m2, I.Point3d(0.0, 1.0, 0.0))
+    p4 = I.AddPoint(m2, I.Point3d(0.0, 0.0, 1.0))
+    add_volume_element!(m2, (p1, p2, p3, p4); region=1)
+    nq2 = native_quality(m2)
+    @test nq2.open_element_count == 4
+
+    # This mesh's suggest_mesh_fixes should now surface the open-boundary
+    # suggestion, since it genuinely has unpaired facets.
+    mr = mesh_report(m2)
+    sugs = suggest_mesh_fixes(generate_mesh_result(geom, mesh_options(; maxh=40.0)), mr)
+    @test any(s -> s.code == :netgen_open_boundary, sugs)
 end

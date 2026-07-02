@@ -47,6 +47,8 @@ struct MeshQualityReport
     netgen_volume_mesh_ok::Bool
     netgen_boundary_ok::Bool
     netgen_overlapping_boundary::Bool
+    netgen_open_element_count::Int
+    netgen_open_segment_count::Int
 end
 
 function Base.show(io::IO, r::MeshQualityReport)
@@ -73,7 +75,8 @@ function Base.show(io::IO, ::MIME"text/html", r::MeshQualityReport)
           "<tr><th>inverted_element_count</th><td>", r.inverted_element_count, "</td></tr>",
           "<tr><th>zero_volume_element_count</th><td>", r.zero_volume_element_count, "</td></tr>",
           "<tr><th>netgen_total_bad</th><td>", round(r.netgen_total_bad; digits=2), "</td></tr>",
-          "<tr><th>netgen_volume_mesh_ok</th><td>", r.netgen_volume_mesh_ok, "</td></tr></table>")
+          "<tr><th>netgen_volume_mesh_ok</th><td>", r.netgen_volume_mesh_ok, "</td></tr>",
+          "<tr><th>netgen_open_element_count</th><td>", r.netgen_open_element_count, "</td></tr></table>")
 end
 
 const _QUALITY_BAD_THRESHOLD = 0.05
@@ -152,16 +155,24 @@ are not directly comparable.
 
 # Open elements / open segments (watertightness)
 
-Netgen also exposes `Mesh::FindOpenElements` / `Mesh::FindOpenSegments`,
-which would be the natural native "is this mesh watertight" check. They are
-intentionally **not** wrapped into a count here: they populate internal C++
-arrays (`Mesh::GetNOpenElements()`, `Mesh::GetNOpenSegments()`) that are not
-exposed through the current `Internals` CxxWrap bindings, and the only
-observable side effect from Julia is a `PrintMessage` at verbosity level 5
-(suppressed by default, and not a stable machine-readable string to scrape).
-Getting real open-element/open-segment counts requires extending the C++
-binding layer to expose `GetNOpenElements`/`GetNOpenSegments`/`OpenElements`
-— left as a documented open item, not silently faked here.
+`Mesh::GetNOpenElements`/`OpenElement`/`GetNOpenSegments`/`GetOpenSegment`
+(populated by the already-used `FindOpenElements`/`FindOpenSegments`) are now
+wrapped (`NetgenCxxWrap_jll` commit `b551a88`). `open_element_count` is
+well-verified: `0` on a normally generated mesh, exactly `4` on a hand-built
+single tet with no surface elements added (its 4 unpaired faces) — treat it
+as the authoritative "is the boundary watertight" signal.
+
+`open_segment_count`, by contrast, was **not** confirmed to mean what its
+name suggests: on the same normally-generated, fully-consistent `frame.step`
+mesh (`open_element_count == 0`, `CheckConsistentBoundary == 0`),
+`open_segment_count` read `7187` — nonzero on a mesh with no other sign of a
+problem, and larger than `GetNSeg` (the total 1D edge-segment count, `5053`
+on that mesh). `FindOpenSegments`/`GetNOpenSegments` almost certainly track
+something more specific than "the boundary has a hole" (plausibly open edges
+of the *surface triangulation* rather than unpaired boundary facets) that
+was not pinned down here. Exposed for completeness with this caveat
+attached; do **not** treat a nonzero `open_segment_count` as evidence of a
+problem the way a nonzero `open_element_count` is.
 """
 struct NativeQualityReport
     total_bad::Float64
@@ -171,6 +182,8 @@ struct NativeQualityReport
     volume_mesh_ok::Bool
     boundary_ok::Bool
     overlapping_boundary::Bool
+    open_element_count::Int
+    open_segment_count::Int
     warnings::Vector{DiagnosticMessage}
 end
 
@@ -180,7 +193,8 @@ function Base.show(io::IO, r::NativeQualityReport)
           ", mean_element_badness=", round(r.mean_element_badness; digits=4),
           ", volume_mesh_ok=", r.volume_mesh_ok,
           ", boundary_ok=", r.boundary_ok,
-          ", overlapping_boundary=", r.overlapping_boundary, ")")
+          ", overlapping_boundary=", r.overlapping_boundary,
+          ", open_element_count=", r.open_element_count, ")")
 end
 
 function Base.summary(io::IO, r::NativeQualityReport)
@@ -196,10 +210,12 @@ function Base.show(io::IO, ::MIME"text/html", r::NativeQualityReport)
           "<tr><th>mean_element_badness</th><td>", round(r.mean_element_badness; digits=4), "</td></tr>",
           "<tr><th>volume_mesh_ok</th><td>", r.volume_mesh_ok, "</td></tr>",
           "<tr><th>boundary_ok</th><td>", r.boundary_ok, "</td></tr>",
-          "<tr><th>overlapping_boundary</th><td>", r.overlapping_boundary, "</td></tr></table>")
+          "<tr><th>overlapping_boundary</th><td>", r.overlapping_boundary, "</td></tr>",
+          "<tr><th>open_element_count</th><td>", r.open_element_count, "</td></tr>",
+          "<tr><th>open_segment_count</th><td>", r.open_segment_count, "</td></tr></table>")
 end
 
-const _NATIVE_QUALITY_EMPTY = NativeQualityReport(0.0, NaN, NaN, NaN, true, true, false, DiagnosticMessage[])
+const _NATIVE_QUALITY_EMPTY = NativeQualityReport(0.0, NaN, NaN, NaN, true, true, false, 0, 0, DiagnosticMessage[])
 
 """
     native_quality(mesh) -> NativeQualityReport
@@ -224,6 +240,8 @@ function native_quality(m)
             _NATIVE_QUALITY_EMPTY.volume_mesh_ok,
             _NATIVE_QUALITY_EMPTY.boundary_ok,
             _NATIVE_QUALITY_EMPTY.overlapping_boundary,
+            _NATIVE_QUALITY_EMPTY.open_element_count,
+            _NATIVE_QUALITY_EMPTY.open_segment_count,
             warnings)
     end
 
@@ -231,7 +249,7 @@ function native_quality(m)
     mp = Internals.MeshingParameters()
     if ne == 0
         _append!(warnings, :warning, :empty_mesh, "no volume elements to measure")
-        return NativeQualityReport(0.0, NaN, NaN, NaN, true, true, false, warnings)
+        return NativeQualityReport(0.0, NaN, NaN, NaN, true, true, false, 0, 0, warnings)
     end
 
     total_bad = Internals.CalcTotalBad(m, mp)
@@ -239,11 +257,15 @@ function native_quality(m)
     vol_ok = Internals.CheckVolumeMesh(m) == 0
     bnd_ok = Internals.CheckConsistentBoundary(m) == 0
     overlap = Internals.CheckOverlappingBoundary(m) != 0
+    Internals.FindOpenElements(m, 0)
+    open_elements = Internals.GetNOpenElements(m)
+    Internals.FindOpenSegments(m, 0)
+    open_segments = Internals.GetNOpenSegments(m)
 
     return NativeQualityReport(
         total_bad,
         minimum(errs), maximum(errs), sum(errs) / length(errs),
-        vol_ok, bnd_ok, overlap, warnings)
+        vol_ok, bnd_ok, overlap, open_elements, open_segments, warnings)
 end
 
 """
@@ -293,7 +315,7 @@ function quality(m)
             0, 0, (min=0.0, mean=0.0, max=0.0), warnings,
             nq.total_bad, nq.min_element_badness, nq.max_element_badness,
             nq.mean_element_badness, nq.volume_mesh_ok, nq.boundary_ok,
-            nq.overlapping_boundary)
+            nq.overlapping_boundary, nq.open_element_count, nq.open_segment_count)
     end
 
     isempty(qualities) && _append!(warnings, :warning, :empty_mesh, "no elements to measure")
@@ -314,7 +336,7 @@ function quality(m)
         min_e, max_e, ar, warnings,
         nq.total_bad, nq.min_element_badness, nq.max_element_badness,
         nq.mean_element_badness, nq.volume_mesh_ok, nq.boundary_ok,
-        nq.overlapping_boundary)
+        nq.overlapping_boundary, nq.open_element_count, nq.open_segment_count)
 end
 
 Base.@deprecate mesh_quality(m) quality(m)
