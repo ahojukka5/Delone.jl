@@ -4,6 +4,31 @@ All notable changes to Delone.jl are documented in this file.
 
 ## [Unreleased]
 
+### Added — periodic boundary conditions (RVE / microstructure unit cells)
+- **`identify_periodic!`/`identify_periodic_box!`** (`src/periodic.jl`): set
+  up pre-mesh periodic identification between OCC faces, so `generate_mesh`
+  produces exact node correspondence across periodic boundaries (Netgen
+  copies one face's mesh through the given translation to build the
+  other's) — the standard mechanism for computational-homogenization
+  periodic BCs. `identify_periodic_box!` is a convenience for axis-aligned
+  box/hex unit cells (auto-detects the min/max face pair along an axis via
+  the new `faces_on_plane`/`occ_face_bbox`/`occ_nr_faces`). New
+  `NetgenCxxWrap_jll` bindings (`OCC_NrFaces`, `OCC_FaceBoundingBox`,
+  `OCC_IdentifyFaces`, `OCC_RebuildGeometry`) wrap Netgen's OCC-level
+  `netgen::Identify`. New constants `NG_ID_PERIODIC`, `NG_ID_CLOSESURFACES`,
+  `NG_ID_CLOSEEDGES`.
+- Found and fixed a real propagation bug along the way: `Identify()` calls
+  made on an already-constructed `OCCGeometry` register correctly in
+  Netgen's global side table, but that geometry's own snapshot (taken once,
+  at construction time via `BuildFMap()`) goes stale, so `generate_mesh`
+  would silently produce zero identifications. Fixed via
+  `OCC_RebuildGeometry`, which reconstructs a fresh `OCCGeometry` from the
+  same underlying shape — `identify_periodic!`/`identify_periodic_box!`
+  return this new handle automatically.
+- Scoped to axis-aligned box/hex unit cells for now; arbitrary curved-face
+  pairing and multi-fragment face pairing (from boolean-cut microstructure)
+  are follow-ups, not yet supported.
+
 ### Changed (roadmap Phase 5.4 — naming consolidation)
 - **`set_element_orders!`'s 5-arg single-cell anisotropic overload renamed
   to `set_element_orders_xyz!`**, pairing with the reader

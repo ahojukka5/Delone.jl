@@ -117,11 +117,40 @@ layer (named as a gap in the 2026-07-01 audit, still open).
 - `surface_mesh_orientation!`, `pure_tet_mesh`/`pure_trig_mesh` checks →
   useful inside `validate`.
 
-### A7. Periodic identifications (query exists, setup doesn't)
+### A7. Periodic identifications — **done for the axis-aligned box/hex case**
 
-`periodic_vertex_pairs` reads; nothing writes. Setup needs the un-wrapped
-`Identifications` class — record it as a **known backend gap** in
-`limitations.md` and defer wrapping until a consumer (Oodi) needs it.
+**Status (2026-07-02): implemented.** A real consumer need materialized
+(microstructural/RVE homogenization modeling), so this was un-deferred.
+New `NetgenCxxWrap_jll` bindings (`OCC_NrFaces`/`OCC_FaceBoundingBox`/
+`OCC_IdentifyFaces`/`OCC_RebuildGeometry`, calling Netgen's OCC-level
+`netgen::Identify`) plus new Delone.jl functions
+`identify_periodic!`/`identify_periodic_box!` (`src/periodic.jl`) set up
+pre-mesh periodic identification between OCC faces, so `generate_mesh`
+produces exact node correspondence across the periodic boundary (Netgen
+copies one face's surface mesh through the given translation to build the
+other's — no interpolation error). `periodic_vertex_pairs` (the existing
+reader) now has something real to read.
+
+Empirically discovered and fixed a real propagation bug along the way:
+`OCCGeometry::BuildFMap()` snapshots pending `Identify()` registrations
+once, at construction time — calling `Identify()` on an already-constructed
+geometry (the only way to reach faces by index from Julia) registers
+correctly in Netgen's global side table but the geometry's own snapshot
+stays stale, so `generate_mesh` silently produces zero identifications.
+Fixed by reconstructing a fresh `OCCGeometry` from the same underlying
+`TopoDS_Shape` after `Identify()` (`OCC_RebuildGeometry`) — OCC's B-Rep
+sub-shapes are reference-counted, so this re-discovers the identical faces
+with a now-current snapshot. `identify_periodic!`/`identify_periodic_box!`
+do this automatically and return the new handle.
+
+Scoped to axis-aligned box/hex unit cells (bounding-box-plane face
+selection) rather than arbitrary curved-face pairing, which would need full
+`TopoDS_Shape` navigation exposed to Julia — a larger, separate follow-up if
+a consumer needs it. Also not yet handled: a boolean-cut microstructure
+fragmenting one periodic face into multiple pieces touching the same plane
+(`identify_periodic_box!` throws `ArgumentError` on that ambiguity rather
+than guessing; `identify_periodic!` with explicit face indices is the
+fallback).
 
 ---
 
