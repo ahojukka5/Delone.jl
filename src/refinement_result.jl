@@ -23,6 +23,20 @@ function Base.show(io::IO, r::RefinementResult)
           ", cells ", r.old_element_count, "→", r.new_element_count, ")")
 end
 
+# No `Base.summary` override: `show` is already a single terse line covering
+# the essential success/level/cell-delta fields — a distinct `summary` would
+# only shave a few characters off the same content, not add real value.
+
+function Base.show(io::IO, ::MIME"text/html", r::RefinementResult)
+    print(io, "<table><caption>RefinementResult</caption>",
+          "<tr><th>success</th><td>", r.success, "</td></tr>",
+          "<tr><th>levels</th><td>", r.old_level_count, " → ", r.new_level_count, "</td></tr>",
+          "<tr><th>cells</th><td>", r.old_element_count, " → ", r.new_element_count, "</td></tr>",
+          "<tr><th>created_nodes</th><td>", r.created_nodes, "</td></tr>",
+          "<tr><th>created_elements</th><td>", r.created_elements, "</td></tr>",
+          "<tr><th>transfer_available</th><td>", r.transfer_available, "</td></tr></table>")
+end
+
 function _refinement_result!(h, old_levels, old_ne, old_np; transfer_available=true)
     new_levels = nlevels(h)
     m_new = finest(h)

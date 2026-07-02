@@ -12,6 +12,7 @@ makedocs(
     ),
     pages = [
         "Home" => "index.md",
+        "Tutorial" => "tutorial.md",
         "Upstream documentation" => "external.md",
         "Wrapped capabilities" => "capabilities.md",
         "Not yet wrapped" => "limitations.md",
@@ -22,6 +23,13 @@ makedocs(
             "Mesh hierarchies & sessions" => "examples/hierarchy.md",
             "Structured reports & introspection" => "examples/introspection.md",
             "Tags, hp-adaptivity & FEM data" => "examples/tags_hp_fem.md",
+        ],
+        "Concepts" => [
+            "MeshOptions" => "mesh_options.md",
+            "Sessions & snapshots" => "sessions_snapshots.md",
+            "Introspection contract" => "introspection_contract.md",
+            "Internals escape hatch" => "internals_escape_hatch.md",
+            "Handles, ownership & GC" => "handles_gc.md",
         ],
         "Reference" => [
             "Geometry" => "reference/geometry.md",
@@ -43,4 +51,11 @@ makedocs(
     ],
     checkdocs = :exported,
     warnonly = [:cross_references, :missing_docs, :docs_block],
+    doctest = true,
+)
+
+deploydocs(
+    repo = "github.com/ahojukka5/Delone.jl.git",
+    devbranch = "master",
+    push_preview = true,
 )

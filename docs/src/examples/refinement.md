@@ -7,35 +7,51 @@ chord midpoints.
 
 ## Uniform refinement
 
-```julia
+```@example refinement
 using Delone
 
 geom = geometry2d(Circle(0.0, 0.0, 1.0, "d", "c"))
 mesh = generate_mesh(geom; maxh=0.4)
 
-ne0 = Delone.Internals.GetNE(mesh)
+# NOTE: `Internals.GetNE` counts *volume* elements and is always 0 for a 2D
+# mesh — 2D domain triangles are stored as surface elements. Use `GetNSE`
+# (or the dimension-aware `num_cells`) for 2D cell counts.
+nc0 = Delone.Internals.GetNSE(mesh)
 refine!(mesh)                    # in place
-Delone.Internals.GetNE(mesh) > ne0         # more elements
+Delone.Internals.GetNSE(mesh) > nc0        # more elements
 ```
 
-On a 3D sphere built with OCC, boundary vertices stay on the surface after
-`refine!` (radius 1 within floating-point tolerance).
+On a 3D cylinder built from BREP, boundary vertices stay on the curved lateral
+surface after `refine!` (radius 1 within floating-point tolerance) — the same
+geometry-aware projection applies to any curved CAD face, not just 2D circles.
 
 ## Marked bisection (adaptive)
 
 Mark elements, then bisect:
 
-```julia
-mesh = generate_mesh(geom; maxh=0.4)
-Delone.Internals.UpdateTopology(mesh)
+```@example refinement
+mesh2 = generate_mesh(geom; maxh=0.4)
+Delone.Internals.UpdateTopology(mesh2)
 
-ne = Delone.Internals.GetNE(mesh)
-marked = falses(ne)
-marked[1:ne÷4] .= true            # refine first quarter of elements
+nc = Delone.Internals.GetNSE(mesh2)   # 2D domain triangles, see note above
+marked = falses(nc)
+marked[1:nc÷4] .= true            # refine first quarter of elements
 
-mark_for_refinement!(mesh, marked)
-bisect!(mesh)
+mark_for_refinement!(mesh2, marked)
+bisect!(mesh2)
+Int(num_cells(mesh2))
 ```
+
+**2D caveat:** [`mark_for_refinement!`](@ref) only sets flags on **3D volume**
+elements (`Internals.GetNE`/`VolumeElement`); on a 2D mesh it is a no-op, and
+Netgen's 2D bisection then refines **uniformly** regardless of marking — the
+block above quadruples the element count exactly, not just the marked quarter
+(matching the `local_size` caveat already documented on [`MeshOptions`](@ref)).
+For real element-wise adaptivity in 2D, mark with
+[`mark_for_ngx_refinement!`](@ref) and refine with [`ngx_refine!`](@ref) instead
+(see [Tags, hp-adaptivity & FEM data](@ref "Tags, hp-adaptivity & FEM data")) —
+that path does produce a genuinely localized element count increase. In 3D,
+`mark_for_refinement!` + `bisect!` performs true localized bisection.
 
 `BisectionOptions` fields (`refine_p`, `refine_hp`, …) are available on the C++
 type if you need marked p- or hp-refinement at the bisection step; Julian session
@@ -45,7 +61,7 @@ helpers wrap the common cases (see [Tags, hp-adaptivity & FEM data](@ref "Tags, 
 
 Add edge midpoints and curve them onto the geometry:
 
-```julia
+```@example refinement
 np0 = Delone.Internals.GetNP(mesh)
 make_second_order!(mesh)
 Delone.Internals.GetNP(mesh) > np0         # new midpoint nodes
@@ -61,7 +77,7 @@ after curving (`generation` changes in a live session).
 parent node indices (or `(0,0)` if the node existed on the coarse mesh with the
 **same index**):
 
-```julia
+```@example refinement
 coarse = generate_mesh(geom; maxh=0.5)
 fine   = copy_mesh(coarse)
 refine!(fine)
@@ -74,6 +90,9 @@ for j in axes(P, 2)
     a == 0 && continue
     # New node j splits edge (a,b) on the coarse mesh; Xf[:,j] is on the geometry.
 end
+
+n_new = count(j -> P[1, j] != 0, axes(P, 2))
+(n_new, size(P, 2))
 ```
 
 On a unit disk, parents on the boundary lie at radius 1, the chord midpoint sits

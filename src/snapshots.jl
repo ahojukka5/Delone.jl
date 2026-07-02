@@ -140,6 +140,15 @@ struct MeshHierarchySnapshot
     generation::Int
 end
 
+# Same collection contract as `MeshHierarchy`/`MeshHierarchySession` (see
+# hierarchy.jl / session.jl): indexing and iteration walk `.levels`, one
+# `MeshLevelSnapshot` per hierarchy level.
+Base.length(hs::MeshHierarchySnapshot) = length(hs.levels)
+Base.getindex(hs::MeshHierarchySnapshot, k::Integer) = hs.levels[k]
+Base.lastindex(hs::MeshHierarchySnapshot) = length(hs.levels)
+Base.iterate(hs::MeshHierarchySnapshot, s=1) =
+    s > length(hs.levels) ? nothing : (hs.levels[s], s + 1)
+
 """
     level_snapshot(session, k) -> MeshLevelSnapshot
 

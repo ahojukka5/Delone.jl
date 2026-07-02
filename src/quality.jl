@@ -59,6 +59,23 @@ function Base.show(io::IO, r::MeshQualityReport)
           ", netgen_volume_mesh_ok=", r.netgen_volume_mesh_ok, ")")
 end
 
+function Base.summary(io::IO, r::MeshQualityReport)
+    print(io, "MeshQualityReport(min_quality=", round(r.min_quality; digits=4),
+          ", bad=", r.bad_element_count, ")")
+end
+
+function Base.show(io::IO, ::MIME"text/html", r::MeshQualityReport)
+    print(io, "<table><caption>MeshQualityReport</caption>",
+          "<tr><th>min_quality</th><td>", round(r.min_quality; digits=4), "</td></tr>",
+          "<tr><th>mean_quality</th><td>", round(r.mean_quality; digits=4), "</td></tr>",
+          "<tr><th>max_quality</th><td>", round(r.max_quality; digits=4), "</td></tr>",
+          "<tr><th>bad_element_count</th><td>", r.bad_element_count, "</td></tr>",
+          "<tr><th>inverted_element_count</th><td>", r.inverted_element_count, "</td></tr>",
+          "<tr><th>zero_volume_element_count</th><td>", r.zero_volume_element_count, "</td></tr>",
+          "<tr><th>netgen_total_bad</th><td>", round(r.netgen_total_bad; digits=2), "</td></tr>",
+          "<tr><th>netgen_volume_mesh_ok</th><td>", r.netgen_volume_mesh_ok, "</td></tr></table>")
+end
+
 const _QUALITY_BAD_THRESHOLD = 0.05
 const _VOLUME_ZERO_TOL = 1e-30
 
@@ -164,6 +181,22 @@ function Base.show(io::IO, r::NativeQualityReport)
           ", volume_mesh_ok=", r.volume_mesh_ok,
           ", boundary_ok=", r.boundary_ok,
           ", overlapping_boundary=", r.overlapping_boundary, ")")
+end
+
+function Base.summary(io::IO, r::NativeQualityReport)
+    print(io, "NativeQualityReport(total_bad=", round(r.total_bad; digits=2),
+          ", volume_mesh_ok=", r.volume_mesh_ok, ")")
+end
+
+function Base.show(io::IO, ::MIME"text/html", r::NativeQualityReport)
+    print(io, "<table><caption>NativeQualityReport</caption>",
+          "<tr><th>total_bad</th><td>", round(r.total_bad; digits=2), "</td></tr>",
+          "<tr><th>min_element_badness</th><td>", round(r.min_element_badness; digits=4), "</td></tr>",
+          "<tr><th>max_element_badness</th><td>", round(r.max_element_badness; digits=4), "</td></tr>",
+          "<tr><th>mean_element_badness</th><td>", round(r.mean_element_badness; digits=4), "</td></tr>",
+          "<tr><th>volume_mesh_ok</th><td>", r.volume_mesh_ok, "</td></tr>",
+          "<tr><th>boundary_ok</th><td>", r.boundary_ok, "</td></tr>",
+          "<tr><th>overlapping_boundary</th><td>", r.overlapping_boundary, "</td></tr></table>")
 end
 
 const _NATIVE_QUALITY_EMPTY = NativeQualityReport(0.0, NaN, NaN, NaN, true, true, false, DiagnosticMessage[])

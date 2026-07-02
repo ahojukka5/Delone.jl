@@ -40,6 +40,36 @@ function Base.show(io::IO, r::MeshTagReport)
     end
 end
 
+function Base.summary(io::IO, r::MeshTagReport)
+    print(io, "MeshTagReport(boundary_tags=", length(r.boundary_tags),
+          ", region_tags=", length(r.region_tags), ")")
+end
+
+function Base.show(io::IO, ::MIME"text/html", r::MeshTagReport)
+    print(io, "<div class=\"delone-report\"><b>MeshTagReport</b>")
+    print(io, "<table><caption>boundary tags</caption><tr><th>name</th><th>count</th></tr>")
+    if isempty(r.boundary_tags)
+        print(io, "<tr><td colspan=\"2\">(none)</td></tr>")
+    else
+        for (name, cnt) in sort(collect(r.boundary_tags); by=x -> x[1])
+            print(io, "<tr><td>", _html_escape(name), "</td><td>", cnt, "</td></tr>")
+        end
+    end
+    print(io, "</table>")
+    print(io, "<table><caption>region tags</caption><tr><th>name</th><th>count</th></tr>")
+    if isempty(r.region_tags)
+        print(io, "<tr><td colspan=\"2\">(none)</td></tr>")
+    else
+        for (name, cnt) in sort(collect(r.region_tags); by=x -> x[1])
+            print(io, "<tr><td>", _html_escape(name), "</td><td>", cnt, "</td></tr>")
+        end
+    end
+    print(io, "</table>")
+    print(io, "<p>untagged boundary facets: ", r.untagged_boundary_count,
+          ", untagged cells: ", r.untagged_region_count, "</p>")
+    print(io, "</div>")
+end
+
 function _count_tags(regs::Vector{Int32}, names::Dict{Int32,String})
     counts = Dict{String,Int}()
     untagged = 0

@@ -38,17 +38,18 @@ Delone.jl           Julian helpers + live hierarchy / snapshot contract
 
 ## Quick start
 
-```julia
+```@example quickstart
 using Delone
 
 # 2D unit disk
 disk = Circle(0.0, 0.0, 1.0, "disk", "boundary")
 mesh = generate_mesh(geometry2d(disk); maxh=0.4)
 
-points(mesh)          # 3×np coordinate matrix
-triangles2d(mesh)     # 3×nse connectivity (1-based)
+println("points: ", size(points(mesh)))            # 3×np coordinate matrix
+println("triangles2d: ", size(triangles2d(mesh)))   # 3×nse connectivity (1-based)
 
 refine!(mesh)         # geometry-aware h-refinement in place
+Int(num_cells(mesh))
 ```
 
 For 3D CAD import or programmatic OCC modeling, see [Building geometry](@ref "Building geometry").

@@ -33,6 +33,18 @@ Several `Ngx_Mesh` hp methods are bound but require **hp internal state**:
 - `GetClusterRep*` crashes on plain h-refined meshes → use `hp_clusters_available` first.
 - Cluster reps and some order queries assume hp refinement or second-order curving has run.
 
+### `parent_faces` — likely uninitialized memory on faces with no parent
+
+`parent_faces(mesh, fnr)` (`src/fem.jl`, wraps `Internals.GetParentFaces`)
+returns `(info, f1, f2, f3, f4)`. When a face has no parent, fields `f2`–`f4`
+were observed to vary non-deterministically between runs on identical input
+— consistent with reading uninitialized memory on the C++ side rather than a
+documented "no parent" sentinel. Only `info` (the first field, orientation)
+is currently reliable. This looks like a real bug in the underlying
+`GetParentFaces` C++ binding, not a Julia-layer gap — worth investigating
+upstream in `NetgenCxxWrap_jll` before trusting `f2`–`f4` for anything.
+Discovered while writing `docs/src/examples/tags_hp_fem.md`'s doctest.
+
 ### 2D tag/name limitation (Julia layer, not missing C++)
 
 In 2D, `material_names` is empty (`GetNDomains == 0` on the current path), and
@@ -93,11 +105,13 @@ aren't rediscovered from scratch:
   object; the lower-level free function that upstream Netgen's own Python
   bindings use instead (`STLMeshingDummy`) isn't exposed by
   `NetgenCxxWrap_jll`. No Julian `STLOptions` API exists until that's wrapped.
-- **`generate_mesh`/`generate_mesh_result` is broken for STL geometry**
-  (separate from the point above): `Internals.SetGeometry` has no overload
-  accepting `STLGeometry` (only `NetgenGeometry`), so it throws `MethodError`
-  before meshing starts. Calling `Internals.GenerateMesh` directly (skipping
-  `SetGeometry`) works — a real bug in `generate_mesh_result`, not (yet) fixed.
+- ~~**`generate_mesh`/`generate_mesh_result` was broken for STL geometry**~~
+  **Fixed.** `Internals.SetGeometry` has no overload accepting `STLGeometry`
+  (only `NetgenGeometry`), so it used to throw `MethodError` before meshing
+  started. `generate_mesh_result` now checks `hasmethod` before calling
+  `SetGeometry` and skips straight to `Internals.GenerateMesh` when the
+  geometry type doesn't support it — see `test/stl.jl`'s end-to-end STL
+  volume-meshing test.
 
 ## What Delone.jl does not do
 

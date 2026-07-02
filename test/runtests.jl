@@ -74,4 +74,6 @@ const CYLINDER = joinpath(@__DIR__, "fixtures", "cylinder.brep")  # unit cylinde
     include("mesh2.jl")
     include("ngx2.jl")
     include("native_quality.jl")
+    include("base_interface.jl")
+    include("makie_ext.jl")
 end

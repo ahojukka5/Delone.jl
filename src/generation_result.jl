@@ -26,6 +26,33 @@ function Base.show(io::IO, d::MeshGenerationDiagnostics)
     end
 end
 
+function Base.summary(io::IO, d::MeshGenerationDiagnostics)
+    print(io, "MeshGenerationDiagnostics(", length(d.messages), " messages)")
+end
+
+function Base.show(io::IO, ::MIME"text/html", d::MeshGenerationDiagnostics)
+    print(io, "<div class=\"delone-report\"><table><caption>MeshGenerationDiagnostics</caption>",
+          "<tr><th>failure_stage</th><td>", d.failure_stage === nothing ? "—" : d.failure_stage, "</td></tr>",
+          "<tr><th>backend_status</th><td>", d.backend_status === nothing ? "—" : d.backend_status, "</td></tr>",
+          "<tr><th>messages</th><td>", length(d.messages), "</td></tr>",
+          "<tr><th>suggestions</th><td>", length(d.suggestions), "</td></tr></table>")
+    if !isempty(d.messages)
+        print(io, "<b>messages</b><ul>")
+        for m in d.messages
+            print(io, "<li>", m.severity, " [", m.code, "]: ", _html_escape(m.message), "</li>")
+        end
+        print(io, "</ul>")
+    end
+    if !isempty(d.suggestions)
+        print(io, "<b>suggestions</b><ul>")
+        for s in d.suggestions
+            print(io, "<li>", _html_escape(s.message), "</li>")
+        end
+        print(io, "</ul>")
+    end
+    print(io, "</div>")
+end
+
 """
     MeshGenerationResult <: AbstractOodiReport
 
@@ -54,6 +81,24 @@ function Base.show(io::IO, r::MeshGenerationResult)
     end
     !isempty(r.warnings) && print(io, ", warnings=", length(r.warnings))
     print(io, "\n  ", r.diagnostics)
+end
+
+function Base.summary(io::IO, r::MeshGenerationResult)
+    print(io, "MeshGenerationResult(success=", r.success,
+          ", elapsed=", round(r.elapsed_seconds; digits=3), "s)")
+end
+
+function Base.show(io::IO, ::MIME"text/html", r::MeshGenerationResult)
+    print(io, "<div class=\"delone-report\"><table><caption>MeshGenerationResult</caption>",
+          "<tr><th>success</th><td>", r.success, "</td></tr>",
+          "<tr><th>elapsed_seconds</th><td>", round(r.elapsed_seconds; digits=3), "</td></tr>")
+    if r.success && r.mesh !== nothing
+        print(io, "<tr><th>nodes</th><td>", num_nodes(r.mesh), "</td></tr>",
+              "<tr><th>cells</th><td>", num_cells(r.mesh), "</td></tr>")
+    end
+    print(io, "<tr><th>warnings</th><td>", length(r.warnings), "</td></tr></table>")
+    show(io, MIME("text/html"), r.diagnostics)
+    print(io, "</div>")
 end
 
 const _MESHING3_STAGE = Dict(

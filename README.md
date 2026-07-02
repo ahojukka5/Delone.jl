@@ -91,48 +91,26 @@ geom = geometry2d(disk)
 
 # 1. Coarse mesh.
 coarse = generate_mesh(geom; maxh=0.5)
-Xc = points(coarse)                       # 2×np coordinates
 
 # 2. Refine (geometry-aware). copy_mesh keeps `coarse` intact as its own level.
 fine = copy_mesh(coarse)
 refine!(fine)
-Xf = points(fine)
 
-# 3. Hierarchical mapping between the two meshes.
-#    parent_nodes(fine)[:, j] gives the two coarse nodes that fine node j came
-#    from, or (0, 0) if node j already existed on the coarse mesh (with the
-#    SAME index there — coarse vertices keep their numbering in every level).
+# 3. Hierarchical mapping between the two meshes: parent_nodes(fine)[:, j] gives
+#    the two coarse nodes that fine node j came from, or (0, 0) if node j already
+#    existed on the coarse mesh (with the SAME index there).
 P = parent_nodes(fine)
-radius(p) = hypot(p[1], p[2])
-
-for j in axes(P, 2)
-    a, b = P[1, j], P[2, j]
-    a == 0 && continue                    # inherited: Xf[:, j] == Xc[:, j]
-    # New node: it descends from the coarse edge (a, b). On a curved boundary it
-    # is the edge's midpoint *projected onto the geometry*, not the plain average.
-    midpoint = (Xc[:, a] .+ Xc[:, b]) ./ 2
-    # e.g. on the circle: parents at radius 1, midpoint inside (r<1), node on r=1.
-end
-```
-
-Running it on a coarse disk:
-
-```
-coarse: 19 nodes, 24 triangles
-fine:   61 nodes, 96 triangles
-new boundary node 20: parents (1, 5)
-  parent radii:     1.0, 1.0
-  chord midpoint r: 0.965926   (inside the disk)
-  actual node r:    1.0         (snapped onto the circle)
-inherited nodes: 19  (== coarse node count)
 ```
 
 A new boundary node is *not* the plain average of its parents — it is projected
-onto the curved boundary. The parents sit at radius 1, their chord midpoint is
-inside (radius `< 1`), but the actual node is placed back on the circle at radius
-exactly 1. That is what "geometry-aware" means, and it keeps every level of the
-hierarchy faithful to the CAD model. The 19 inherited nodes keep their indices,
-so `parent_nodes` is all that is needed to relate the two meshes.
+onto the curved boundary (parents at radius 1, chord midpoint inside the disk,
+actual node snapped back onto the circle at radius exactly 1). That is what
+"geometry-aware" means, and it keeps every level of the hierarchy faithful to
+the CAD model.
+
+See [`docs/src/tutorial.md`](docs/src/tutorial.md) for the full step-by-step
+walkthrough — this same example with prose explaining each step, plus
+`MeshOptions`, structured diagnostics, and building a `MeshHierarchy`.
 
 ## Building geometry
 

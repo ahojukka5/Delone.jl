@@ -13,18 +13,27 @@ OodiCore = "7c15cd61-9c6a-4671-bc94-9960963998ac"
 Monge = "7c4e8f2a-9b1d-4e6c-a3f8-2d5e6b7c8a9f"
 Zlib_jll = "83775a58-1f1d-513f-b197-d71354ab007a"
 
+[weakdeps]
+Makie = "ee78f7c6-11fb-53f2-987a-cfe4a2b5a57a"
+
 [sources]
 OodiCore = {path = "/Users/jukka/dev/OodiCore.jl"}
 Monge = {path = "/Users/jukka/dev/Monge.jl"}
+
+[extensions]
+DeloneMakieExt = "Makie"
 
 [compat]
 Aqua = "0.8"
 CxxWrap = "0.17"
 Documenter = "1"
+Makie = "0.24"
 OCCT_jll = "7.9"
 OodiCore = "0.1"
 Zlib_jll = "1"
-julia = "1.6"
+# Package extensions (weakdeps/[extensions], e.g. DeloneMakieExt) require Julia
+# >= 1.9's Base.get_extension mechanism; 1.6 predates it.
+julia = "1.9"
 
 [extras]
 Aqua = "4c88cf16-eb10-579e-8560-4a9242c79595"

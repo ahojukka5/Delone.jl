@@ -35,6 +35,31 @@ function Base.show(io::IO, r::OodiSnapshotReadiness)
     end
 end
 
+function Base.summary(io::IO, r::OodiSnapshotReadiness)
+    print(io, "OodiSnapshotReadiness(ready=", r.ready, ", dimension=", r.dimension, ")")
+end
+
+function Base.show(io::IO, ::MIME"text/html", r::OodiSnapshotReadiness)
+    print(io, "<div class=\"delone-report\"><table><caption>OodiSnapshotReadiness</caption>",
+          "<tr><th>ready</th><td>", r.ready, "</td></tr>",
+          "<tr><th>dimension</th><td>", r.dimension === nothing ? "—" : r.dimension, "</td></tr>",
+          "<tr><th>element_type</th><td>", r.element_type === nothing ? "—" : r.element_type, "</td></tr>",
+          "<tr><th>hierarchy_levels</th><td>", r.hierarchy_levels === nothing ? "—" : r.hierarchy_levels, "</td></tr>",
+          "<tr><th>parent_node_transfers</th><td>", r.parent_node_transfers, "</td></tr>",
+          "<tr><th>parent_element_transfers</th><td>", r.parent_element_transfers, "</td></tr>",
+          "<tr><th>boundary_tags</th><td>", r.boundary_tags, "</td></tr>",
+          "<tr><th>region_tags</th><td>", r.region_tags, "</td></tr>",
+          "<tr><th>order</th><td>", r.order, "</td></tr></table>")
+    if !isempty(r.warnings)
+        print(io, "<ul>")
+        for w in r.warnings
+            print(io, "<li>", _html_escape(w.message), "</li>")
+        end
+        print(io, "</ul>")
+    end
+    print(io, "</div>")
+end
+
 function _detect_order(m)
     try
         orders = element_orders(m)

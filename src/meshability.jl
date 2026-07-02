@@ -36,6 +36,30 @@ function Base.show(io::IO, r::MeshabilityReport)
     end
 end
 
+function Base.summary(io::IO, r::MeshabilityReport)
+    print(io, "MeshabilityReport(likely_meshable=", r.likely_meshable,
+          ", target_h=", r.target_h, ")")
+end
+
+function Base.show(io::IO, ::MIME"text/html", r::MeshabilityReport)
+    print(io, "<div class=\"delone-report\"><table><caption>MeshabilityReport</caption>",
+          "<tr><th>likely_meshable</th><td>", r.likely_meshable, "</td></tr>",
+          "<tr><th>geometry_valid</th><td>", r.geometry_valid, "</td></tr>",
+          "<tr><th>target_h</th><td>", r.target_h, "</td></tr>",
+          "<tr><th>failure_stage</th><td>", r.failure_stage === nothing ? "—" : r.failure_stage, "</td></tr></table>")
+    if r.backend_message !== nothing
+        print(io, "<p><b>backend:</b> ", _html_escape(r.backend_message), "</p>")
+    end
+    if !isempty(r.suggestions)
+        print(io, "<ul>")
+        for s in r.suggestions
+            print(io, "<li>", _html_escape(s.message), "</li>")
+        end
+        print(io, "</ul>")
+    end
+    print(io, "</div>")
+end
+
 """
     meshability_report(geometry; options::MeshOptions) -> MeshabilityReport
 

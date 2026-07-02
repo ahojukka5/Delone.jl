@@ -10,25 +10,43 @@ contract package — Delone.jl only adds methods and concrete report types.
 `test/llm_feedback.jl` exercises this whole layer end to end and is the most
 current reference if this page and the code ever drift.
 
+The examples on this page share the `cylinder.brep` fixture (unit cylinder,
+radius 1, height 2) and one running `Delone` session.
+
 ## MeshOptions: construction and validation
 
-```julia
+```@example introspection
 using Delone
 
-opts = MeshOptions(maxh=2.0, minh=0.1, grading=0.3)
+opts = MeshOptions(maxh=0.5, minh=0.05, grading=0.3)
 validate_options!(opts)          # throws ArgumentError on bad combinations, returns opts
 
-MeshOptions(maxh=-1.0)           # ArgumentError: maxh must be > 0
-MeshOptions(maxh=1.0, minh=2.0)  # ArgumentError: minh must be ≤ maxh
+# The bare `MeshOptions(...)` constructor does *not* validate — only
+# `validate_options!`/`mesh_options` do. Wrap the throwing calls below.
+try
+    validate_options!(MeshOptions(maxh=-1.0))           # ArgumentError: maxh must be > 0
+catch e
+    println("caught: ", e)
+end
+try
+    validate_options!(MeshOptions(maxh=1.0, minh=2.0))  # ArgumentError: minh must be ≤ maxh
+catch e
+    println("caught: ", e)
+end
 ```
 
 `validate(opts)` is the non-throwing counterpart, returning an OodiCore
 `ValidationReport`:
 
-```julia
+```jldoctest
+using Delone
+
 vr = validate(MeshOptions(maxh=1.0, minh=2.0))
-isvalid(vr)                                    # false
-any(d -> d.severity == :error, vr.diagnostics) # true
+(isvalid(vr), any(d -> d.severity == :error, vr.diagnostics))
+
+# output
+
+(false, true)
 ```
 
 ## Structured mesh generation
@@ -37,15 +55,19 @@ any(d -> d.severity == :error, vr.diagnostics) # true
 `result=true` for a [`MeshGenerationResult`](@ref) instead — meshing failures
 become data, not exceptions:
 
-```julia
-result = generate_mesh(geom; options=opts, result=true)
-result.success           # Bool
-result.mesh              # mesh handle, or `nothing` on failure
-result.options           # the MeshOptions actually used
-result.elapsed_seconds
-result.diagnostics       # MeshGenerationDiagnostics: failure_stage, messages, suggestions
+```@example introspection
+cylinder_path = joinpath(@__DIR__, "..", "..", "..", "test", "fixtures", "cylinder.brep")
+geom = load_brep(cylinder_path)
 
-mesh(result)              # extract the mesh; throws if result.success == false
+result = generate_mesh(geom; options=opts, result=true)
+println("success: ", result.success)           # Bool
+println("has mesh: ", result.mesh !== nothing)  # mesh handle, or `nothing` on failure
+println("options: ", result.options)            # the MeshOptions actually used
+println("elapsed_seconds >= 0: ", result.elapsed_seconds >= 0)
+println("diagnostics: ", result.diagnostics)    # MeshGenerationDiagnostics: failure_stage, messages, suggestions
+
+m = mesh(result)              # extract the mesh; throws if result.success == false
+Int(num_cells(m))
 ```
 
 A failed attempt (e.g. `nothing` geometry, an empty mesh, or a backend
@@ -58,20 +80,20 @@ non-throwing path (`try_generate_mesh` is a deprecated alias).
 
 ## Mesh reports: validation, quality, tags
 
-```julia
-m = generate_mesh(geom; maxh=40.0)
-
+```@example introspection
 r = mesh_report(m)        # MeshReport: validation + quality + topology + tags
-r.validation.valid
-r.validation.node_count
-r.validation.element_count
-isvalid(m)                 # shortcut: r.validation.valid
+println("valid: ", r.validation.valid)
+println("node_count: ", r.validation.node_count)
+println("element_count: ", r.validation.element_count)
+println("isvalid(m): ", isvalid(m))                 # shortcut: r.validation.valid
 
 q = quality(m)             # MeshQualityReport (mesh_quality is a deprecated alias)
-q.min_quality; q.mean_quality
-q.min_edge_length; q.max_edge_length
+println("min_quality in [0,1]: ", 0 <= q.min_quality <= 1)
+println("mean_quality in [0,1]: ", 0 <= q.mean_quality <= 1)
+println("min_edge_length <= max_edge_length: ", q.min_edge_length <= q.max_edge_length)
 
 tr = tag_report(m)         # MeshTagReport: boundary/region tag inventory
+tr
 ```
 
 All report types have readable `show` methods (`string(r)`), and none of them
@@ -84,10 +106,10 @@ is always `false`.
 presence, sizing hints) — it doesn't guarantee success but flags obvious
 blockers:
 
-```julia
+```@example introspection
 mr = meshability_report(geom; options=opts)
-mr.likely_meshable   # Bool or nothing
-mr.suggestions       # Vector{DiagnosticMessage}
+println("likely_meshable: ", mr.likely_meshable)   # Bool or nothing
+mr.suggestions                                     # Vector{DiagnosticMessage}
 ```
 
 `meshing_diagnostics(geom, opts, result)` does the post-mortem version,
@@ -98,14 +120,16 @@ untagged boundaries).
 
 ## Hierarchy & session reports
 
-```julia
+```@example introspection
 h = mesh_hierarchy(geom; maxh=0.5, levels=1)
-refine!(h; mode=:uniform, result=true)   # RefinementResult when result=true
+rr = refine!(h; mode=:uniform, result=true)   # RefinementResult when result=true
+println("refinement success: ", rr.success)
 
 hr = hierarchy_report(h)                 # MeshHierarchyReport
-hr.nlevels
-hr.levels[k].element_count
-hr.transfers[k].inherited_node_count
+println("nlevels: ", hr.nlevels)
+println("level 1 element_count: ", hr.levels[1].element_count)
+println("level 2 element_count: ", hr.levels[2].element_count)
+println("transfer[1].inherited_node_count: ", hr.transfers[1].inherited_node_count)
 ```
 
 The same pattern works on a live `MeshHierarchySession` via
@@ -131,13 +155,17 @@ Three generic entry points, dispatched by argument type, cover "what is this?",
 | `readiness(mesh_or_hierarchy, OodiImportTarget())` | [`OodiSnapshotReadiness`](@ref) |
 | `readiness(hierarchy_or_session, GeometricMultigridTarget())` | OodiCore `ReadinessReport` |
 
-```julia
-readiness(geom, MeshingTarget())                       # ArgumentError: needs options=
-readiness(geom, MeshingTarget(options=opts)).likely_meshable
+```@example introspection
+try
+    readiness(geom, MeshingTarget())                       # ArgumentError: needs options=
+catch e
+    println("caught: ", e)
+end
+println("likely_meshable: ", readiness(geom, MeshingTarget(options=opts)).likely_meshable)
 
 gmg = readiness(h, GeometricMultigridTarget())
-gmg.subject       # :geometric_multigrid
-isready(gmg)       # needs ≥2 levels + valid coarse→fine transfers
+println("subject: ", gmg.subject)       # :geometric_multigrid
+println("isready(gmg): ", isready(gmg))       # needs ≥2 levels + valid coarse→fine transfers
 ```
 
 `oodi_snapshot_readiness(x)` (the concrete function behind `OodiImportTarget`)
@@ -153,13 +181,13 @@ or an LLM tool response. Raw mesh handles are never emitted; a
 `MeshGenerationResult` is summarized (`has_mesh`, `node_count`, `cell_count`)
 instead of embedding `r.mesh`:
 
-```julia
+```@example introspection
 nt = to_namedtuple(mesh_report(m))
-nt.validation.valid
-nt.quality.min_quality
+println("nt.validation.valid: ", nt.validation.valid)
+println("nt.quality.min_quality in [0,1]: ", 0 <= nt.quality.min_quality <= 1)
 
-ntr = to_namedtuple(generate_mesh(geom; maxh=40.0, result=true))
-ntr.success; ntr.has_mesh; ntr.node_count
+ntr = to_namedtuple(generate_mesh(geom; maxh=0.5, result=true))
+println("success: ", ntr.success, ", has_mesh: ", ntr.has_mesh, ", node_count > 0: ", ntr.node_count > 0)
 haskey(ntr, :mesh)   # false — raw handle never serialized
 ```
 
@@ -168,14 +196,24 @@ haskey(ntr, :mesh)   # false — raw handle never serialized
 Lightweight, dependency-free export for human or LLM feedback loops (no full
 viewer):
 
-```julia
-export_vtk(m, "mesh.vtk")           # ASCII VTK unstructured grid (volume + boundary)
-export_obj(m, "mesh.obj")           # Wavefront OBJ (boundary/domain triangles)
-export_svg_2d(m2d, "mesh.svg")      # 2D-only SVG preview
-export_mesh_preview(m, path; format=:vtk)  # dispatches to :vtk or :obj
+```@example introspection
+vtk_path = tempname() * ".vtk"
+obj_path = tempname() * ".obj"
+svg_path = tempname() * ".svg"
 
-mesh_preview(m; format=:vtk)                    # writes to a fresh tempfile, returns its path
-mesh_previews(m; formats=[:vtk, :obj])          # one tempfile per format
+export_vtk(m, vtk_path)           # ASCII VTK unstructured grid (volume + boundary)
+export_obj(m, obj_path)           # Wavefront OBJ (boundary/domain triangles)
+
+m2d = generate_mesh(geometry2d(Circle(0.0, 0.0, 1.0, "disk", "boundary")); maxh=0.4)
+export_svg_2d(m2d, svg_path)      # 2D-only SVG preview
+
+preview_path = tempname() * ".vtk"
+export_mesh_preview(m, preview_path; format=:vtk)  # dispatches to :vtk or :obj
+
+p1 = mesh_preview(m; format=:vtk)                    # writes to a fresh tempfile, returns its path
+ps = mesh_previews(m; formats=[:vtk, :obj])          # one tempfile per format
+
+(isfile(vtk_path), isfile(obj_path), isfile(svg_path), isfile(p1), all(isfile, ps))
 ```
 
 Next: [Tags, hp-adaptivity & FEM data](@ref "Tags, hp-adaptivity & FEM data").

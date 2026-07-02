@@ -4,6 +4,51 @@ All notable changes to Delone.jl are documented in this file.
 
 ## [Unreleased]
 
+### Added (roadmap Phase 3 — polish & ecosystem)
+- **Getting-started tutorial** (`docs/src/tutorial.md`) and five new concept
+  pages: `mesh_options.md`, `sessions_snapshots.md`, `introspection_contract.md`,
+  `internals_escape_hatch.md`, `handles_gc.md` — including an empirical GC
+  finding (a `level_mesh` handle extracted from a session survives the
+  session going out of scope and `GC.gc()`, since Julia's GC tracks the
+  handle's own reachability, not the session's — observed, not an upstream
+  guarantee). `README.md`'s worked example trimmed to a teaser pointing at
+  the tutorial.
+- **Doctests**: all ~48 code blocks across the 6 example pages and
+  `index.md` converted to real `@example`/`jldoctest` blocks (`doctest = true`
+  in `docs/make.jl`); a few left as illustrative fences where execution
+  wasn't practical (undeclared doc dependency, a live-mutation pattern).
+  Verifying them surfaced and fixed 6 real doc-accuracy bugs (stale
+  constructor signatures, a vacuous 2D test comparing the wrong element
+  count, an incorrect claim that a bare `MeshOptions(...)` validates its
+  input). Also surfaced a likely native-binding bug: `parent_faces`'s
+  2nd–4th return fields appear to read uninitialized memory when a face has
+  no parent (documented in `docs/src/limitations.md`, not fixed here) —
+  and a **known fix path for 2D local sizing**: `mark_for_ngx_refinement!`/
+  `ngx_refine!` was verified to achieve real localized 2D refinement, unlike
+  the `bisect!`-based mechanism `refine_near!` currently uses (noted in
+  `src/local_sizing.jl` as a follow-up, not yet integrated).
+- **`deploydocs()`** wired in `docs/make.jl` (targets `github.com/ahojukka5/
+  Delone.jl.git`) and `.github/workflows/docs.yml` updated to pass through
+  `DOCUMENTER_KEY`/`GITHUB_TOKEN` — publishing still requires a human to add
+  the `DOCUMENTER_KEY` repo secret; safe no-op locally and on PRs until then.
+- **`Base.summary`/`MIME"text/html"` show methods** across all structured
+  report types (`MeshReport`, `MeshQualityReport`, `NativeQualityReport`,
+  `MeshValidationReport`, `MeshGenerationResult`/`Diagnostics`,
+  `RefinementResult`'s siblings, `MeshabilityReport`, `OodiSnapshotReadiness`,
+  `MeshTagReport`, `MeshHierarchyReport`/`MeshLevelReport`/`TransferReport`),
+  plus the `MeshHierarchySnapshot` collection interface
+  (`length`/`getindex`/`iterate`, mirroring `MeshHierarchy`). No new exports
+  — all additive methods on existing public types. A shared `_html_escape`
+  helper (`src/diagnostics.jl`) is applied to every user/backend-controlled
+  string field rendered as HTML.
+- **`DeloneMakieExt`** package extension (`ext/DeloneMakieExt.jl`,
+  Julia ≥1.9 required — `[compat] julia` bumped from `"1.6"` to `"1.9"` for
+  the `Base.get_extension` mechanism): `Makie.mesh`/`Makie.mesh!`/`Makie.plot`
+  recipes for `MeshLevelSnapshot`/`MeshHierarchySnapshot` (plain-array
+  snapshot data only — live mesh handles are deliberately not supported,
+  since they're raw unexported `Internals` C++ types).
+  `DeloneWriteVTKExt`/`DeloneGeometryBasicsExt` remain open for a future round.
+
 ### Added (roadmap Phase 2 — functionality gaps)
 - **Local mesh sizing** (`src/local_sizing.jl`): `LocalSizeField`,
   `local_size_field`, `restrict_h!`, `restrict_h_at!`, `mesh_h_at`,
@@ -37,11 +82,13 @@ All notable changes to Delone.jl are documented in this file.
   by `NetgenCxxWrap_jll`. No `STLOptions` API was added; needs a new C++
   binding upstream first.
 
-### Known bug found (not yet fixed)
-- `generate_mesh`/`generate_mesh_result` is broken end-to-end for STL
+### Fixed (roadmap Phase 2 follow-up)
+- `generate_mesh`/`generate_mesh_result` was broken end-to-end for STL
   geometry: `Internals.SetGeometry` has no overload accepting `STLGeometry`
-  (only `NetgenGeometry`), so it throws `MethodError` before meshing starts.
-  Calling `Internals.GenerateMesh` directly (skipping `SetGeometry`) works.
+  (only `NetgenGeometry`), so it threw `MethodError` before meshing started.
+  `generate_mesh_result` now checks `hasmethod` before calling `SetGeometry`
+  and skips straight to `Internals.GenerateMesh` when unsupported — see the
+  new end-to-end STL volume-meshing test in `test/stl.jl`.
 
 ### Added
 - Full Documenter.jl API reference (`docs/src/reference/*.md`, 13 pages,

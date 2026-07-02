@@ -52,6 +52,14 @@
 #     run without error in 2D (so callers aren't broken), but only achieve
 #     uniform refinement there, not spatial localization — flagged via a
 #     one-time `@warn`, not silently passed off as working.
+#
+#     POSSIBLE FIX PATH (found later, not yet integrated here): the
+#     `mark_for_ngx_refinement!`/`ngx_refine!` pair (see hp.jl) was verified
+#     in docs/src/examples/refinement.md to produce real localized refinement
+#     on a 2D mesh, unlike `mark_for_refinement!`/`bisect!`. `refine_near!`
+#     could likely be rewritten to use that pair for its 2D path instead of
+#     warning — worth a follow-up rather than assuming 2D localization is a
+#     fundamental limitation.
 
 # --- standalone size field ---------------------------------------------------
 

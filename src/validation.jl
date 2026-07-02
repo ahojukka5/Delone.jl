@@ -36,6 +36,34 @@ function Base.show(io::IO, r::MeshValidationReport)
     end
 end
 
+function Base.summary(io::IO, r::MeshValidationReport)
+    print(io, "MeshValidationReport(valid=", r.valid, ", dim=", r.dimension, ")")
+end
+
+function Base.show(io::IO, ::MIME"text/html", r::MeshValidationReport)
+    print(io, "<div class=\"delone-report\"><table><caption>MeshValidationReport</caption>",
+          "<tr><th>valid</th><td>", r.valid, "</td></tr>",
+          "<tr><th>dimension</th><td>", r.dimension, "</td></tr>",
+          "<tr><th>nodes</th><td>", r.node_count, "</td></tr>",
+          "<tr><th>cells</th><td>", r.element_count, "</td></tr>",
+          "<tr><th>boundary</th><td>", r.boundary_element_count, "</td></tr></table>")
+    if !isempty(r.errors)
+        print(io, "<b>errors</b><ul>")
+        for e in r.errors
+            print(io, "<li>[", e.code, "] ", _html_escape(e.message), "</li>")
+        end
+        print(io, "</ul>")
+    end
+    if !isempty(r.warnings)
+        print(io, "<b>warnings</b><ul>")
+        for w in r.warnings
+            print(io, "<li>[", w.code, "] ", _html_escape(w.message), "</li>")
+        end
+        print(io, "</ul>")
+    end
+    print(io, "</div>")
+end
+
 """
     isvalid(report::MeshValidationReport) -> Bool
 

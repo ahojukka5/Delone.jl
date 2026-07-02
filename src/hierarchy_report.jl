@@ -21,6 +21,19 @@ function Base.show(io::IO, r::MeshLevelReport)
           ", valid=", r.valid, ")")
 end
 
+# No `Base.summary` override here: `show` is already a single terse line
+# covering the essential fields (level/nodes/cells/valid) — a distinct
+# `summary` would just restate the same one-liner, not add value.
+
+function Base.show(io::IO, ::MIME"text/html", r::MeshLevelReport)
+    print(io, "<table><caption>MeshLevelReport</caption>",
+          "<tr><th>level</th><td>", r.level, "</td></tr>",
+          "<tr><th>nodes</th><td>", r.node_count, "</td></tr>",
+          "<tr><th>cells</th><td>", r.element_count, "</td></tr>",
+          "<tr><th>boundary_cells</th><td>", r.boundary_element_count, "</td></tr>",
+          "<tr><th>valid</th><td>", r.valid, "</td></tr></table>")
+end
+
 """
     TransferReport
 
@@ -42,6 +55,18 @@ function Base.show(io::IO, r::TransferReport)
           ", inherited_nodes=", r.inherited_node_count,
           ", created_nodes=", r.created_node_count,
           ", valid=", r.valid, ")")
+end
+
+# No `Base.summary` override here either: same reasoning as `MeshLevelReport`
+# — `show` is already a single terse line.
+
+function Base.show(io::IO, ::MIME"text/html", r::TransferReport)
+    print(io, "<table><caption>TransferReport ", r.coarse_level, "→", r.fine_level, "</caption>",
+          "<tr><th>valid</th><td>", r.valid, "</td></tr>",
+          "<tr><th>inherited_nodes</th><td>", r.inherited_node_count, "</td></tr>",
+          "<tr><th>created_nodes</th><td>", r.created_node_count, "</td></tr>",
+          "<tr><th>parent_map_kind</th><td>", r.parent_map_kind, "</td></tr>",
+          "<tr><th>rule</th><td>", _html_escape(r.interpolation_rule_summary), "</td></tr></table>")
 end
 
 """
@@ -71,6 +96,40 @@ function Base.show(io::IO, r::MeshHierarchyReport)
     for w in r.warnings
         println(io, "  warning: ", w.message)
     end
+end
+
+function Base.summary(io::IO, r::MeshHierarchyReport)
+    print(io, "MeshHierarchyReport(valid=", r.valid, ", nlevels=", r.nlevels, ")")
+end
+
+function Base.show(io::IO, ::MIME"text/html", r::MeshHierarchyReport)
+    print(io, "<div class=\"delone-report\"><b>MeshHierarchyReport</b> (valid=", r.valid,
+          ", nlevels=", r.nlevels)
+    r.generation !== nothing && print(io, ", generation=", r.generation)
+    print(io, ")")
+    print(io, "<table><tr><th>level</th><th>nodes</th><th>cells</th><th>boundary</th><th>valid</th></tr>")
+    for lv in r.levels
+        print(io, "<tr><td>", lv.level, "</td><td>", lv.node_count, "</td><td>", lv.element_count,
+              "</td><td>", lv.boundary_element_count, "</td><td>", lv.valid, "</td></tr>")
+    end
+    print(io, "</table>")
+    if !isempty(r.transfers)
+        print(io, "<table><tr><th>coarse</th><th>fine</th><th>inherited</th><th>created</th><th>valid</th></tr>")
+        for tr in r.transfers
+            print(io, "<tr><td>", tr.coarse_level, "</td><td>", tr.fine_level, "</td><td>",
+                  tr.inherited_node_count, "</td><td>", tr.created_node_count, "</td><td>",
+                  tr.valid, "</td></tr>")
+        end
+        print(io, "</table>")
+    end
+    if !isempty(r.warnings)
+        print(io, "<ul>")
+        for w in r.warnings
+            print(io, "<li>", _html_escape(w.message), "</li>")
+        end
+        print(io, "</ul>")
+    end
+    print(io, "</div>")
 end
 
 function _level_report(m, level::Int)
