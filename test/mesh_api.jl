@@ -49,8 +49,12 @@ end
 @testset "optimize_volume!" begin
     geom = load_step(STEP)
     m = generate_mesh(geom; maxh=40.0)
-    status = optimize_volume!(m; maxh=40.0, throw_on_error=false)
-    @test status == MESHING3_OK
+    r = optimize_volume!(m; maxh=40.0, throw_on_error=false)
+    @test r.status == MESHING3_OK
+    @test r.mesh === m
+
+    m2 = generate_mesh(geom; maxh=40.0)
+    @test optimize_volume!(m2; maxh=40.0) === m2
 end
 
 @testset "load_geometry (.stl)" begin

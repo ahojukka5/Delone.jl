@@ -121,7 +121,7 @@ check_mesh(mesh3d)                    # (volume_ok=..., boundary_ok=...)
 ```
 
 ```@example meshing
-optimize_volume!(mesh3d; maxh=0.5)   # returns MESHING3_OK (see exported constants)
+optimize_volume!(mesh3d; maxh=0.5) === mesh3d   # returns the mesh; throws on failure
 ```
 
 ```@example meshing

@@ -112,24 +112,31 @@ function improve_mesh!(m; maxh::Real, kwargs...)
 end
 
 """
-    optimize_volume!(mesh; maxh, kwargs...) -> status
+    optimize_volume!(mesh; maxh, throw_on_error=true, kwargs...) -> mesh
+    optimize_volume!(mesh; maxh, throw_on_error=false, kwargs...) -> (mesh=mesh, status=status)
 
-Fill and optimize a volume mesh (`MeshVolume` then `OptimizeVolume`). Returns the
-Netgen status code (see [`MESHING3_OK`](@ref) and related constants). Throws
-`ErrorException` when `throw_on_error=true` (default) and status ≠ `MESHING3_OK`.
+Fill and optimize a volume mesh (`MeshVolume` then `OptimizeVolume`).
+
+With `throw_on_error=true` (default), throws `ErrorException` when the
+Netgen status is not `MESHING3_OK` and otherwise returns `mesh` — matching
+every other mutating `!` function in this package. With
+`throw_on_error=false`, never throws and instead returns `(mesh=mesh,
+status=status)` so the Netgen status code (see [`MESHING3_OK`](@ref) and
+related constants) is still recoverable via `.status`.
 """
 function optimize_volume!(m; maxh::Real, throw_on_error::Bool=true, kwargs...)
     mp = meshing_parameters(; maxh=maxh, kwargs...)
     status = Internals.MeshVolume(mp, m)
     if status != MESHING3_OK
         throw_on_error && throw(ErrorException("MeshVolume failed with status $status"))
-        return status
+        return (mesh=m, status=status)
     end
     status = Internals.OptimizeVolume(mp, m)
-    if throw_on_error && status != MESHING3_OK
-        throw(ErrorException("OptimizeVolume failed with status $status"))
+    if status != MESHING3_OK
+        throw_on_error && throw(ErrorException("OptimizeVolume failed with status $status"))
+        return (mesh=m, status=status)
     end
-    return status
+    return throw_on_error ? m : (mesh=m, status=status)
 end
 
 """
