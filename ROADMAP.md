@@ -332,6 +332,87 @@ sequenced initiative rather than a task to "finish."
 
 ---
 
+## Workstream E — round-5 ergonomics & documentation audit (2026-07-02)
+
+A fresh, independent re-audit (3 parallel research agents covering API
+surface, documentation freshness, and real workflow friction via
+tests/examples) after Phases 1–4 + Category 3 had already landed. Headline
+finding: the "happy path" workflows and `MeshOptions` construction were
+already genuinely convenient — no changes needed there — but the audit
+found real, concrete gaps, including two outright `AGENTS.md`-convention
+violations and one genuine naming collision that actively bites users.
+
+### E1. Documentation corrections (Phase 5.1)
+Two stale/wrong claims (2D `local_size` described as broken when it was
+fixed by `1cbc05a`; "no CI workflow yet" claimed when CI badges are on the
+README), 3 broken `@ref`/relative-link targets that `docs/make.jl`'s
+`warnonly = [:cross_references, ...]` was silently hiding, three package
+extensions only discoverable via one reference page, a placeholder link,
+and one imprecise-wording fix.
+
+### E2. AGENTS.md-convention bugfixes & polish (Phase 5.2)
+`load_geometry` threw a bare `ErrorException` instead of `ArgumentError`
+(direct convention violation); `refine!`/`refine_session!` stringified an
+entire `RefinementResult` struct into an error message; `MeshLevelSnapshot`
+had no `Base.show`; `parent_edges`/`parent_faces`/`find_element`/
+`volume_element_transformation` continued the `NamedTuple`-return precedent
+from `c285e9c`; local-sizing no-op-before-generation caveats were made
+consistent across `restrict_h!`/`set_global_h!`/`set_minimal_h!`/
+`restrict_h_at!`.
+
+### E3. Breaking API fixes (Phase 5.3)
+Three deliberate, pre-registration breaking changes (package is still
+`0.1.0`, no external consumers besides the sibling Oodi ecosystem, checked
+clean before each change):
+- **`optimize_volume!`** returned a raw Netgen status code even on success,
+  violating `AGENTS.md`'s own "mutating `!` functions return the mesh" rule
+  that every other `!` function already followed. Now returns `mesh`
+  (`throw_on_error=true`, default) or `(mesh=, status=)`
+  (`throw_on_error=false`).
+- **`mesh(result::MeshGenerationResult)` renamed to `generated_mesh`** — it
+  collided with the near-universal local variable name `mesh`, exactly the
+  idiom this package's own docs use (`mesh = generate_mesh(...)`).
+  `Base.@deprecate`d.
+- **`unsafe_level_mesh` deprecated** — it was a bare alias for `level_mesh`
+  (`unsafe_level_mesh(s,k) === level_mesh(s,k)`), providing no actual
+  type-level protection the `unsafe_` naming implied. The warning moved into
+  `level_mesh`'s own docstring, stated honestly as a discipline/documentation
+  matter, not a type-system guarantee.
+
+### E4. Naming consolidation (Phase 5.4)
+`set_element_orders!`'s 5-arg single-cell anisotropic overload renamed to
+`set_element_orders_xyz!` (pairs with the reader `element_orders_xyz`;
+`Base.@deprecate`d), disambiguating it from the bulk-vector overload and
+from singular `set_element_order!`. The four (now five, with
+`unsafe_level_mesh`) deprecated aliases (`try_generate_mesh`,
+`coarse_hierarchy`, `mesh_quality`, `mesh`, `unsafe_level_mesh`) were moved
+out of their topic-grouped export lines into one dedicated, commented
+"deprecated aliases" export block in `src/Delone.jl`, so tab-completion no
+longer surfaces them at equal visibility to their replacements.
+`tetrahedra`/`surface_triangles` gained "See also" cross-links to their
+dimension-checked siblings (`volume_tetrahedra`/`triangles2d`/`segments2d`)
+instead of being deprecated — they remain genuinely useful lower-level
+primitives. `docs/src/mesh_options.md` gained a "Which constructor do I
+want?" comparison table for `MeshOptions`/`mesh_options`/
+`meshing_parameters`/`to_meshing_parameters`.
+
+### Explicitly rejected findings (judgment calls)
+Renaming `refine!`'s hierarchy overload (legitimate dispatch, not a bug);
+full consolidation of the 4 options-related constructors (would delete a
+legitimately-needed raw-parameter path); deprecating `tetrahedra`/
+`surface_triangles` outright (still the right choice for advanced callers);
+`mesh_from_arrays` 2D support (already deliberately deferred, no consumer
+need); a runtime `@warn` for local-sizing no-op functions (would misfire on
+legitimate post-generation uses); `MeshOptions.local_size::Vector{Any}`
+type-tightening (low payoff, every consumer already normalizes it).
+
+Full test suite: 800 → 803 passing tests across Phases 5.1–5.4 (net +3: one
+new `load_geometry` `ArgumentError` test, one `optimize_volume!` return-shape
+test, one `mesh`→`generated_mesh` deprecation test; several other tests were
+updated in place rather than added).
+
+---
+
 ## Suggested sequencing
 
 **Phase 1 — "make it honest" (days).** D1 hygiene, C5 drift fixes, C1 API
@@ -438,3 +519,10 @@ polish not yet scheduled).
   - Along the way, a real `export_vtk` bug was found and fixed: 2D
     triangles were padded to 4 nodes while still labeled `VTK_TRIANGLE`
     (requires exactly 3) — would corrupt output for real VTK readers.
+- **Round-5 ergonomics & documentation audit (2026-07-02): done.** See
+  Workstream E above for the full breakdown. Fixed two `AGENTS.md`-convention
+  violations (`load_geometry` error type, `optimize_volume!`'s return-type
+  drift), the `mesh(result)` naming collision, the `unsafe_level_mesh`
+  false-safety alias, two stale documentation claims, and did a round of
+  naming consolidation — all with `Base.@deprecate` compatibility shims
+  where a rename was involved. 800 → 803 passing tests.
