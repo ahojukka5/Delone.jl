@@ -4,6 +4,36 @@ All notable changes to Delone.jl are documented in this file.
 
 ## [Unreleased]
 
+### Fixed (roadmap Phase 5.1 — documentation corrections)
+- `docs/src/mesh_options.md` still claimed 2D `local_size` "only achieves
+  uniform refinement... not spatial localization" and that a warning was
+  emitted — both stale since the 2D local-sizing fix (`1cbc05a`); corrected
+  to match `docs/src/reference/local_sizing.md`/`limitations.md`.
+- `docs/src/development.md` claimed "this package does not ship a CI
+  workflow yet" (false — `.github/workflows/test.yml`/`docs.yml` exist,
+  referenced by README badges) and listed "Julia ≥ 1.6" as a prerequisite
+  (actual `[compat] julia = "1.9"`, required for package extensions).
+- Fixed 3 broken `@ref`/relative-link targets that `docs/make.jl`'s
+  `warnonly = [:cross_references, ...]` was silently hiding (removed
+  `:cross_references` from `warnonly` so future breakage fails the build):
+  `examples/meshing.md`'s `Delone.Internals` ref, `interop.jl`'s
+  `to_brep_string` ref (a different package), `fem.jl`'s
+  `Internals.UpdateTopology` ref, `validation.jl`'s `../OodiCore.jl` relative
+  link, and two ambiguous `[Refinement](@ref "Refinement")` links (the nav
+  title "Refinement" resolves to two different pages —
+  `examples/refinement.md` and `reference/refinement.md` — now disambiguated
+  with explicit relative paths).
+- The three package extensions (`DeloneMakieExt`, `DeloneWriteVTKExt`,
+  `DeloneGeometryBasicsExt`) were only discoverable via
+  `docs/src/reference/export.md`; now also surfaced in `docs/src/index.md`'s
+  capability table, `docs/src/capabilities.md`'s export-formats table, and
+  `docs/src/examples/introspection.md`.
+- `docs/src/examples/geometry.md` had a placeholder OpenCascade.jl link
+  (`https://github.com/`); now points at the real repo.
+- `docs/src/limitations.md` "2D-vs-3D effectiveness difference" reworded to
+  "2D-vs-3D mechanism difference" — 2D and 3D are equally effective
+  post-fix; only the underlying Netgen refinement call differs.
+
 ### Added
 - **`DeloneWriteVTKExt`** (`ext/DeloneWriteVTKExt.jl`, weakdep on `WriteVTK`):
   `export_vtu`, real binary/compressed VTU export with cell data (`region`,
