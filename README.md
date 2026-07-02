@@ -1,5 +1,9 @@
 # Delone.jl
 
+[![Tests](https://github.com/ahojukka5/Delone.jl/actions/workflows/test.yml/badge.svg)](https://github.com/ahojukka5/Delone.jl/actions/workflows/test.yml)
+[![Docs](https://github.com/ahojukka5/Delone.jl/actions/workflows/docs.yml/badge.svg)](https://github.com/ahojukka5/Delone.jl/actions/workflows/docs.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
 **Delone.jl** is a high-level, LLM-friendly meshing, refinement, mesh-diagnostics,
 and mesh-hierarchy package for numerical simulation workflows. It is built on
 top of [**Netgen/NGSolve**](https://ngsolve.org/), a mature and powerful

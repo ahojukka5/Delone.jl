@@ -30,6 +30,7 @@ All notable changes to Delone.jl are documented in this file.
   coverage across `fem.jl`, `hp_apply.jl`, `llm_feedback.jl`, and
   `mesh_surgery.jl` (not an exhaustive sweep — `generation_result.jl`/
   `snapshots.jl`/`tags.jl` remain thinner, noted for a future round).
+- CI (tests + docs) and license badges added to `README.md`.
 
 ### Fixed
 - `export_vtk`'s 2D `include_volume` path wrote 4-node cells (a bogus padded
