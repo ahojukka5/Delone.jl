@@ -33,8 +33,7 @@ nlevels(s), generation(s)
 
 `geometry(s)` returns the shared geometry backing every level;
 `coarsest(s)`/`finest(s)` return live mesh handles for the first/last level;
-`level_mesh(s, k)` (alias `unsafe_level_mesh`) returns the live handle for
-level `k`.
+`level_mesh(s, k)` returns the live handle for level `k`.
 
 ## `generation`: the staleness counter
 
@@ -67,7 +66,7 @@ through the `request_*!` functions above.
 
 If you must apply an in-place mutation that isn't one of the `request_*!`
 helpers, use [`mutate_level_mesh!`](@ref) to keep generation tracking
-correct instead of mutating `unsafe_level_mesh(s, k)` directly:
+correct instead of mutating `level_mesh(s, k)` directly:
 
 ```@example sessions
 gen_before = generation(s)

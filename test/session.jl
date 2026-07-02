@@ -54,14 +54,19 @@ end
     @test_throws ArgumentError level_mesh(s, 3)
 end
 
-@testset "unsafe_level_mesh: alias returning the live handle" begin
+@testset "level_mesh: direct mutation does NOT bump generation (documented)" begin
     geom = load_step(STEP)
     s = mesh_session(geom; maxh=40.0)
-    @test unsafe_level_mesh(s, 1) === level_mesh(s, 1)
-    # direct mutation through the live handle does NOT bump generation (documented)
     g0 = generation(s)
-    refine!(unsafe_level_mesh(s, 1))
+    refine!(level_mesh(s, 1))
     @test generation(s) == g0                    # no automatic tracking
+end
+
+@testset "unsafe_level_mesh: deprecated alias for level_mesh" begin
+    geom = load_step(STEP)
+    s = mesh_session(geom; maxh=40.0)
+    handle = @test_deprecated unsafe_level_mesh(s, 1)
+    @test handle === level_mesh(s, 1)
     @test_throws ArgumentError unsafe_level_mesh(s, 5)
 end
 

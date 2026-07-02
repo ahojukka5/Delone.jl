@@ -92,8 +92,13 @@ Returns the **authoritative live** mesh handle, not a copy. `k` must be in
     `generation(session)`, so any snapshots taken beforehand silently go stale.
     Prefer the `request_*!` functions for all simulation-time mutation, or
     [`mutate_level_mesh!`](@ref) when you must mutate a level in place but keep
-    generation tracking correct. [`unsafe_level_mesh`](@ref) is an explicitly
-    named alias of this function.
+    generation tracking correct.
+
+    This safety is a discipline/documentation matter, not a type-system
+    guarantee: `level_mesh` returns the same raw handle regardless of how you
+    intend to use it, so nothing stops you from mutating it directly and
+    silently invalidating generation tracking. Reads (`points`, `tetrahedra`,
+    `quality`, …) are always fine.
 """
 function level_mesh(s::MeshHierarchySession, k::Integer)
     1 <= k <= nlevels(s) ||
@@ -101,15 +106,7 @@ function level_mesh(s::MeshHierarchySession, k::Integer)
     return s.meshes[k]
 end
 
-"""
-    unsafe_level_mesh(session, k) -> live Netgen mesh handle for level `k`.
-
-Explicitly named alias of [`level_mesh`](@ref). The `unsafe_` prefix flags that
-mutating the returned handle bypasses automatic `generation` tracking; reads are
-fine. Use [`mutate_level_mesh!`](@ref) or the `request_*!` functions for
-generation-safe mutation.
-"""
-unsafe_level_mesh(s::MeshHierarchySession, k::Integer) = level_mesh(s, k)
+Base.@deprecate unsafe_level_mesh(s::MeshHierarchySession, k::Integer) level_mesh(s, k)
 
 """
     mutate_level_mesh!(f, session, k; bump_generation=true) -> session

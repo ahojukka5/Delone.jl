@@ -75,7 +75,7 @@ nlevels(s)
 `level_mesh(s, k)` returns the **live** handle for level `k`. For an in-place
 mutation that isn't one of the `request_*!` refinements, use
 `mutate_level_mesh!` to keep `generation` tracking correct instead of mutating
-`unsafe_level_mesh(s, k)` directly:
+`level_mesh(s, k)` directly:
 
 <!-- not converted to @example: illustrates the mutate_level_mesh! pattern with
      a placeholder do-block body ("in-place mesh mutation via Delone.Internals
