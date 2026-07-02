@@ -66,7 +66,7 @@ println("options: ", result.options)            # the MeshOptions actually used
 println("elapsed_seconds >= 0: ", result.elapsed_seconds >= 0)
 println("diagnostics: ", result.diagnostics)    # MeshGenerationDiagnostics: failure_stage, messages, suggestions
 
-m = mesh(result)              # extract the mesh; throws if result.success == false
+m = generated_mesh(result)    # extract the mesh; throws if result.success == false
 Int(num_cells(m))
 ```
 

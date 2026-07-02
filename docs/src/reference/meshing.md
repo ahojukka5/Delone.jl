@@ -14,6 +14,7 @@ generate_mesh_result
 try_generate_mesh
 MeshGenerationResult
 MeshGenerationDiagnostics
+generated_mesh
 mesh
 save_mesh
 load_mesh

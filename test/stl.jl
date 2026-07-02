@@ -25,5 +25,5 @@ end
 
     res = generate_mesh_result(geom, mesh_options(maxh=10.0))
     @test res.success
-    @test mesh(res) isa typeof(m)
+    @test generated_mesh(res) isa typeof(m)
 end

@@ -76,7 +76,7 @@ result.success
 
 ```@example tutorial
 if result.success
-    m = mesh(result)                # extract the mesh; throws if success == false
+    m = generated_mesh(result)      # extract the mesh; throws if success == false
     r = mesh_report(m)              # MeshReport: validation + quality + topology + tags
     r.validation.valid, r.quality.min_quality
 else

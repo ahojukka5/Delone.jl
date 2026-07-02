@@ -67,11 +67,19 @@ struct MeshGenerationResult <: AbstractOodiReport
     warnings::Vector{DiagnosticMessage}
 end
 
-"""Extract the mesh from a successful result; throw if generation failed."""
-function mesh(r::MeshGenerationResult)
+"""
+    generated_mesh(r::MeshGenerationResult) -> mesh
+
+Extract the mesh from a successful result; throw if generation failed.
+Named to avoid colliding with the near-universal local variable name `mesh`
+(as in `mesh = generate_mesh(...)`).
+"""
+function generated_mesh(r::MeshGenerationResult)
     r.success || throw(ArgumentError("mesh generation failed: $(r.diagnostics)"))
     return r.mesh
 end
+
+Base.@deprecate mesh(r::MeshGenerationResult) generated_mesh(r)
 
 function Base.show(io::IO, r::MeshGenerationResult)
     print(io, "MeshGenerationResult(success=", r.success,
@@ -272,5 +280,5 @@ function generate_mesh(geom; options=nothing, maxh=nothing, result::Bool=false, 
         options = mesh_options(; maxh=maxh, kwargs...)
     end
     res = generate_mesh_result(geom, options)
-    return result ? res : mesh(res)
+    return result ? res : generated_mesh(res)
 end

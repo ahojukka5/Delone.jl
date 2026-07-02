@@ -121,7 +121,7 @@ end
     opts = mesh_options(; maxh=40.0, local_size=[(target, 5.0, 15.0, 1)])
     res = generate_mesh_result(geom, opts)
     @test res.success
-    m = mesh(res)
+    m = generated_mesh(res)
     X = points(m); T = tetrahedra(m)
     near = helper_tet_edges_near(X, T, collect(target), 8.0)
     far = helper_tet_edges_near(X, T, far_pt, 30.0)

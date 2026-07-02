@@ -184,7 +184,7 @@ if !result.success
     error("meshing failed")
 end
 
-r = mesh_report(mesh(result))     # MeshReport: validation + quality + topology + tags
+r = mesh_report(generated_mesh(result))   # MeshReport: validation + quality + topology + tags
 r.validation.valid
 r.quality.min_quality
 

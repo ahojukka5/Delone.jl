@@ -37,8 +37,9 @@ end
     @test result.options.maxh == 40.0
     @test num_cells(result.mesh) > 0
     @test result.elapsed_seconds >= 0
-    m = mesh(result)
+    m = generated_mesh(result)
     @test num_nodes(m) == num_nodes(result.mesh)
+    @test_deprecated mesh(result)
 end
 
 @testset "generate_mesh legacy maxh path" begin

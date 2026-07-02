@@ -74,7 +74,7 @@ export occ_geometry_from_brep_string
 # --- mesh generation & I/O --------------------------------------------------
 export MeshOptions, mesh_options, validate_options!, to_meshing_parameters
 export meshing_parameters, generate_mesh, generate_mesh_result, try_generate_mesh
-export MeshGenerationResult, MeshGenerationDiagnostics, mesh
+export MeshGenerationResult, MeshGenerationDiagnostics, generated_mesh, mesh
 export save_mesh, load_mesh
 export update_topology!, compress!
 export mesh_from_arrays
