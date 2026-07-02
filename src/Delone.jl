@@ -73,8 +73,8 @@ export occ_geometry_from_brep_string
 
 # --- mesh generation & I/O --------------------------------------------------
 export MeshOptions, mesh_options, validate_options!, to_meshing_parameters
-export meshing_parameters, generate_mesh, generate_mesh_result, try_generate_mesh
-export MeshGenerationResult, MeshGenerationDiagnostics, generated_mesh, mesh
+export meshing_parameters, generate_mesh, generate_mesh_result
+export MeshGenerationResult, MeshGenerationDiagnostics, generated_mesh
 export save_mesh, load_mesh
 export update_topology!, compress!
 export mesh_from_arrays
@@ -95,7 +95,7 @@ export MeshingTarget, OodiImportTarget, GeometricMultigridTarget
 
 # --- mesh validation & quality reports --------------------------------------
 export MeshValidationReport, isvalid, topology_report
-export MeshQualityReport, quality, mesh_quality
+export MeshQualityReport, quality
 export NativeQualityReport, native_quality
 export MeshTagReport, tag_report, boundary_tags, region_tags
 export has_boundary_tag, has_region_tag
@@ -124,7 +124,7 @@ export pure_tet_mesh, pure_trig_mesh, surface_mesh_orientation!
 export NodeTree, node_tree, build_node_tree, nodes_near
 
 # --- multigrid hierarchy ----------------------------------------------------
-export copy_mesh, MeshHierarchy, coarse_hierarchy, uniform_hierarchy, mesh_hierarchy
+export copy_mesh, MeshHierarchy, uniform_hierarchy, mesh_hierarchy
 export refine_uniform!, refine_marked!
 export nlevels, coarsest, finest, geometry, prolongation
 
@@ -137,7 +137,7 @@ export num_levels, level_nvertices
 export parent_nodes, parent_elements, parent_surface_elements
 
 # --- live session -----------------------------------------------------------
-export MeshHierarchySession, mesh_session, level_mesh, unsafe_level_mesh
+export MeshHierarchySession, mesh_session, level_mesh
 export mutate_level_mesh!, generation
 export request_uniform_refinement!, request_marked_refinement!, request_second_order!
 export request_set_element_orders!, request_set_element_order!
@@ -186,5 +186,12 @@ export periodic_vertex_pairs
 # --- partition & search -----------------------------------------------------
 export find_element, mesh_h_at_point
 export native_partition_hint
+
+# --- deprecated aliases (kept for compatibility; prefer the replacement) ----
+export try_generate_mesh       # use generate_mesh_result
+export coarse_hierarchy        # use mesh_hierarchy
+export mesh_quality            # use quality
+export mesh                    # use generated_mesh
+export unsafe_level_mesh       # use level_mesh
 
 end # module Delone
