@@ -2,7 +2,8 @@
 
 ## Prerequisites
 
-- Julia ≥ 1.6
+- Julia ≥ 1.9 (required for the `Base.get_extension` package-extension
+  mechanism used by `DeloneMakieExt`/`DeloneWriteVTKExt`/`DeloneGeometryBasicsExt`)
 - CMake and a C++17 compiler
 - Artifacts: `NGSolveNetgen_jll`, `OCCT_jll` (BREP bridge), `libcxxwrap-julia`
 - For BREP interop tests: sibling `OpenCascade.jl` (auto-`Pkg.develop` from `test/runtests.jl`)
@@ -73,8 +74,12 @@ julia --project=docs -e 'using Pkg; Pkg.instantiate()'
 
 Policy: **no convenience combinators in C++**; composition stays in Julia.
 
-## Deploying docs (optional)
+## Deploying docs
 
-To publish with Documenter's `deploydocs`, set up `DOCUMENTER_KEY` and
-`GITHUB_REPOSITORY` in CI and add a `docs` workflow. This package does not ship
-a CI workflow yet; local `docs/make.jl` is sufficient for development.
+`.github/workflows/docs.yml` already builds the docs (with doctests) on every
+push/PR and calls `deploydocs()`; `deploydocs()` only actually publishes when
+it detects a real CI deploy context, so it safely no-ops on PR builds and
+local runs. The one remaining manual step is adding a `DOCUMENTER_KEY` repo
+secret (an SSH deploy key generated via `DocumenterTools.genkeys(...)` or the
+GitHub App) — until that's added, the build/doctest step still runs but the
+deploy step skips publishing.
