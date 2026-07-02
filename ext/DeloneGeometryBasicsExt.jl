@@ -7,10 +7,10 @@
 # (`MeshLevelSnapshot`, `MeshHierarchySnapshot` from src/snapshots.jl) are
 # supported here, for the same reason DeloneMakieExt only supports them: live
 # mesh handles returned by `generate_mesh`/`mesh_session` are
-# `CxxWrap.StdLib.SharedPtrAllocated{Delone.Internals.Mesh}` — a raw,
-# unexported `Internals` C++ handle type, not a stable Delone-owned type to
+# `CxxWrap.StdLib.SharedPtrAllocated{Delone.Netgen.Mesh}` — a raw,
+# unexported `Netgen` C++ handle type, not a stable Delone-owned type to
 # dispatch a public bridge on (and AGENTS.md explicitly says public code must
-# never leak raw `Internals` handles). Take a snapshot first
+# never leak raw `Netgen` handles). Take a snapshot first
 # (`level_snapshot`/`hierarchy_snapshot`) and convert that instead.
 #
 # This is the bridge DeloneMakieExt's header comment deliberately deferred:

@@ -15,9 +15,9 @@
 # plain-array snapshot type (`MeshLevelSnapshot` from src/snapshots.jl) as the
 # primary input, since live mesh handles returned by
 # `generate_mesh`/`mesh_session` are raw, unexported
-# `Delone.Internals` C++ handles (`CxxWrap.StdLib.SharedPtrAllocated{...}`) —
+# `Delone.Netgen` C++ handles (`CxxWrap.StdLib.SharedPtrAllocated{...}`) —
 # not a stable public type to dispatch on, and AGENTS.md says public code must
-# never leak raw `Internals` handles into dispatch surfaces. Unlike the Makie
+# never leak raw `Netgen` handles into dispatch surfaces. Unlike the Makie
 # extension, though, `export_vtu` *also* accepts a live mesh handle directly
 # (any `m` for which the existing, dimension-generic extraction functions
 # `points`/`mesh_dimension`/`tetrahedra`/`triangles2d`/`surface_triangles`/
