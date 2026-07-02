@@ -29,6 +29,18 @@ opts
 internally by `generate_mesh`; it also validates its result and accepts the
 deprecated `secondorder` spelling (warns and forwards to `second_order`).
 
+## Which constructor do I want?
+
+Four similarly-named functions touch meshing options; they serve different
+layers, not competing spellings of the same thing:
+
+| Function | What it is | When to use it |
+|----------|------------|-----------------|
+| [`MeshOptions`](@ref) | Plain `@kwdef` struct, no validation on construction | The blessed entry point for `generate_mesh(geom; options=...)` — build it, then validate explicitly if you want to check before generating. |
+| [`mesh_options`](@ref) | Keyword-argument constructor that validates immediately (throws `ArgumentError` on bad input) and accepts the deprecated `secondorder` spelling | A `MeshOptions` + [`validate_options!`](@ref) shortcut in one call; mainly kept for the legacy `secondorder` compatibility shim. |
+| [`meshing_parameters`](@ref) | Builds a raw `Internals.MeshingParameters` directly from keywords, bypassing `MeshOptions` entirely | Only needed when calling [`improve_mesh!`](@ref)/[`optimize_volume!`](@ref) directly (outside `generate_mesh`), since those take `MeshingParameters`-style keywords, not a `MeshOptions`. |
+| [`to_meshing_parameters`](@ref) | Converts an existing `MeshOptions` to `Internals.MeshingParameters` | What `generate_mesh` calls internally after validating; rarely needed directly. |
+
 ## Field-by-field reference
 
 | Field | Default | Constraint (`validate_options!`) | Netgen mapping |

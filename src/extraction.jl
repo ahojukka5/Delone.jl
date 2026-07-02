@@ -10,7 +10,12 @@ function points(m)
     return P
 end
 
-"""tetrahedra(mesh) -> 4×ne Matrix{Int32}, 1-based node ids."""
+"""
+    tetrahedra(mesh) -> 4×ne Matrix{Int32}, 1-based node ids.
+
+See also [`volume_tetrahedra`](@ref) for the same data with a dimension check
+and a name unambiguous about which cells it returns.
+"""
 function tetrahedra(m)
     ne = Internals.GetNE(m)
     T = Matrix{Int32}(undef, 4, ne)
@@ -23,7 +28,14 @@ function tetrahedra(m)
     return T
 end
 
-"""surface_triangles(mesh) -> 3×nse Matrix{Int32}, 1-based node ids."""
+"""
+    surface_triangles(mesh) -> 3×nse Matrix{Int32}, 1-based node ids.
+
+3D boundary triangles. In a 2D mesh, Netgen's "surface elements" are actually
+the domain triangles, not a boundary — use [`triangles2d`](@ref) there
+instead for a dimension-checked, unambiguously-named accessor (and
+[`segments2d`](@ref) for 2D boundary segments).
+"""
 function surface_triangles(m)
     nse = Internals.GetNSE(m)
     S = Matrix{Int32}(undef, 3, nse)
