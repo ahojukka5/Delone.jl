@@ -159,7 +159,7 @@ topo_mesh = copy_mesh(mesh)
 enable_topology_table!(topo_mesh, "parentedges")
 enable_topology_table!(topo_mesh, "parentfaces")
 refine!(topo_mesh)
-Delone.Internals.UpdateTopology(topo_mesh)
+Delone.Netgen.UpdateTopology(topo_mesh)
 
 println("has_parent_edges: ", has_parent_edges(topo_mesh))
 ne = num_cells(topo_mesh)

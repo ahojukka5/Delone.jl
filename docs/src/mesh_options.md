@@ -38,8 +38,8 @@ layers, not competing spellings of the same thing:
 |----------|------------|-----------------|
 | [`MeshOptions`](@ref) | Plain `@kwdef` struct, no validation on construction | The blessed entry point for `generate_mesh(geom; options=...)` — build it, then validate explicitly if you want to check before generating. |
 | [`mesh_options`](@ref) | Keyword-argument constructor that validates immediately (throws `ArgumentError` on bad input) and accepts the deprecated `secondorder` spelling | A `MeshOptions` + [`validate_options!`](@ref) shortcut in one call; mainly kept for the legacy `secondorder` compatibility shim. |
-| [`meshing_parameters`](@ref) | Builds a raw `Internals.MeshingParameters` directly from keywords, bypassing `MeshOptions` entirely | Only needed when calling [`improve_mesh!`](@ref)/[`optimize_volume!`](@ref) directly (outside `generate_mesh`), since those take `MeshingParameters`-style keywords, not a `MeshOptions`. |
-| [`to_meshing_parameters`](@ref) | Converts an existing `MeshOptions` to `Internals.MeshingParameters` | What `generate_mesh` calls internally after validating; rarely needed directly. |
+| [`meshing_parameters`](@ref) | Builds a raw `Netgen.MeshingParameters` directly from keywords, bypassing `MeshOptions` entirely | Only needed when calling [`improve_mesh!`](@ref)/[`optimize_volume!`](@ref) directly (outside `generate_mesh`), since those take `MeshingParameters`-style keywords, not a `MeshOptions`. |
+| [`to_meshing_parameters`](@ref) | Converts an existing `MeshOptions` to `Netgen.MeshingParameters` | What `generate_mesh` calls internally after validating; rarely needed directly. |
 
 ## Field-by-field reference
 
@@ -57,7 +57,7 @@ layers, not competing spellings of the same thing:
 | `local_size` | `Vector{Any}()` | each entry normalized by [`local_size_requests`](@ref) (see below) | **not** a Netgen field — applied by this package *after* generation via [`refine_near!`](@ref) |
 
 `to_meshing_parameters(opts)` converts the Netgen-mapped fields above into a
-raw `MeshingParameters` object (via `Internals.meshing_parameters`) and is
+raw `MeshingParameters` object (via `Netgen.meshing_parameters`) and is
 what `generate_mesh` calls internally after validating.
 
 ## `local_size`: the one field that is not a direct Netgen passthrough

@@ -13,12 +13,12 @@ using Delone
 geom = geometry2d(Circle(0.0, 0.0, 1.0, "d", "c"))
 mesh = generate_mesh(geom; maxh=0.4)
 
-# NOTE: `Internals.GetNE` counts *volume* elements and is always 0 for a 2D
+# NOTE: `Netgen.GetNE` counts *volume* elements and is always 0 for a 2D
 # mesh — 2D domain triangles are stored as surface elements. Use `GetNSE`
 # (or the dimension-aware `num_cells`) for 2D cell counts.
-nc0 = Delone.Internals.GetNSE(mesh)
+nc0 = Delone.Netgen.GetNSE(mesh)
 refine!(mesh)                    # in place
-Delone.Internals.GetNSE(mesh) > nc0        # more elements
+Delone.Netgen.GetNSE(mesh) > nc0        # more elements
 ```
 
 On a 3D cylinder built from BREP, boundary vertices stay on the curved lateral
@@ -31,9 +31,9 @@ Mark elements, then bisect:
 
 ```@example refinement
 mesh2 = generate_mesh(geom; maxh=0.4)
-Delone.Internals.UpdateTopology(mesh2)
+Delone.Netgen.UpdateTopology(mesh2)
 
-nc = Delone.Internals.GetNSE(mesh2)   # 2D domain triangles, see note above
+nc = Delone.Netgen.GetNSE(mesh2)   # 2D domain triangles, see note above
 marked = falses(nc)
 marked[1:nc÷4] .= true            # refine first quarter of elements
 
@@ -43,7 +43,7 @@ Int(num_cells(mesh2))
 ```
 
 **2D caveat:** [`mark_for_refinement!`](@ref) only sets flags on **3D volume**
-elements (`Internals.GetNE`/`VolumeElement`); on a 2D mesh it is a no-op, and
+elements (`Netgen.GetNE`/`VolumeElement`); on a 2D mesh it is a no-op, and
 Netgen's 2D bisection then refines **uniformly** regardless of marking — the
 block above quadruples the element count exactly, not just the marked quarter.
 For real element-wise adaptivity in 2D, mark with
@@ -63,9 +63,9 @@ helpers wrap the common cases (see [Tags, hp-adaptivity & FEM data](@ref "Tags, 
 Add edge midpoints and curve them onto the geometry:
 
 ```@example refinement
-np0 = Delone.Internals.GetNP(mesh)
+np0 = Delone.Netgen.GetNP(mesh)
 make_second_order!(mesh)
-Delone.Internals.GetNP(mesh) > np0         # new midpoint nodes
+Delone.Netgen.GetNP(mesh) > np0         # new midpoint nodes
 ```
 
 Second-order curving is **in-place** on the same mesh level: it does not append a

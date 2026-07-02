@@ -1,7 +1,7 @@
 # Not yet wrapped
 
 Delone.jl is built on Netgen's **exported mesh/geometry API** and a
-**narrow OCCT modeling kernel** (via `Delone.Internals`), not every symbol in
+**narrow OCCT modeling kernel** (via `Delone.Netgen`), not every symbol in
 the upstream trees.
 
 ## Netgen — missing or partial
@@ -35,7 +35,7 @@ Several `Ngx_Mesh` hp methods are bound but require **hp internal state**:
 
 ### `parent_faces` — uninitialized memory on faces with no parent (Netgen core bug)
 
-`parent_faces(mesh, fnr)` (`src/fem.jl`, wraps `Internals.GetParentFaces`)
+`parent_faces(mesh, fnr)` (`src/fem.jl`, wraps `Netgen.GetParentFaces`)
 returns a `(info=, f1=, f2=, f3=, f4=)` `NamedTuple`. When a face has no
 parent, fields `f2`–`f4`
 were observed to vary non-deterministically between runs on identical input
@@ -55,7 +55,7 @@ CxxWrap binding layer alone. Discovered while writing
 
 ### `merge_mesh_file!` — boundary/segment data does not appear to merge
 
-`merge_mesh_file!(mesh, path)` (`src/mesh_surgery.jl`, wraps `Internals.Merge`)
+`merge_mesh_file!(mesh, path)` (`src/mesh_surgery.jl`, wraps `Netgen.Merge`)
 was verified to exactly double node and volume-element counts when merging a
 mesh into a copy of itself, as expected. But `GetNSE` (boundary triangles) and
 `GetNSeg` (edge segments) did **not** change, even though the saved `.vol`
@@ -139,10 +139,10 @@ aren't rediscovered from scratch:
   declaration) plus an `NGSolveNetgen_jll` rebuild — genuinely out of reach
   from `NetgenCxxWrap_jll` alone. No Julian `STLOptions` API exists.
 - ~~**`generate_mesh`/`generate_mesh_result` was broken for STL geometry**~~
-  **Fixed.** `Internals.SetGeometry` has no overload accepting `STLGeometry`
+  **Fixed.** `Netgen.SetGeometry` has no overload accepting `STLGeometry`
   (only `NetgenGeometry`), so it used to throw `MethodError` before meshing
   started. `generate_mesh_result` now checks `hasmethod` before calling
-  `SetGeometry` and skips straight to `Internals.GenerateMesh` when the
+  `SetGeometry` and skips straight to `Netgen.GenerateMesh` when the
   geometry type doesn't support it — see `test/stl.jl`'s end-to-end STL
   volume-meshing test.
 

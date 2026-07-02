@@ -1,6 +1,6 @@
 # Constants
 
-Low-level Netgen enum ids re-exported for comparing raw `Internals` return
+Low-level Netgen enum ids re-exported for comparing raw `Netgen` return
 values (element types, refinement-type selectors, and `MeshVolume` /
 `OptimizeVolume` result codes).
 

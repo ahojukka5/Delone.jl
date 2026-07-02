@@ -3,7 +3,7 @@
 Delone.jl is a high-level meshing, refinement, and mesh-hierarchy package built
 on Netgen/NGSolve. For meshing theory, GUI usage, and the full Netgen/NGSolve
 C++ API, use the upstream projects directly; for raw backend bindings inside
-this package, see `Delone.Internals`.
+this package, see `Delone.Netgen`.
 
 ## Netgen & NGSolve
 

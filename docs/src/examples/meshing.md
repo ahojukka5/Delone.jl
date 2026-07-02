@@ -67,13 +67,13 @@ vol, surf = connectivity(mesh3d)
 (vol == T, surf == F)
 ```
 
-For low-level access, use `Delone.Internals` (`GetNP`, `Point(mesh, i)`,
-`VolumeElement(mesh, i)`, …) — see [Internals escape hatch](../internals_escape_hatch.md)
+For low-level access, use `Delone.Netgen` (`GetNP`, `Point(mesh, i)`,
+`VolumeElement(mesh, i)`, …) — see [Netgen escape hatch](../netgen_escape_hatch.md)
 for when and how to drop down to it.
 
 ## Mesh I/O
 
-Save and reload Netgen volume format without touching Internals:
+Save and reload Netgen volume format without touching Netgen:
 
 ```@example meshing
 out_path = tempname() * ".vol"
@@ -101,9 +101,9 @@ After mesh changes, refresh topology tables:
 
 ```@example meshing
 update_topology!(mesh3d)
-topo = Delone.Internals.GetTopology(mesh3d)
-println("edges: ", Delone.Internals.GetNEdges(topo))
-println("faces: ", Delone.Internals.GetNFaces(topo))
+topo = Delone.Netgen.GetTopology(mesh3d)
+println("edges: ", Delone.Netgen.GetNEdges(topo))
+println("faces: ", Delone.Netgen.GetNFaces(topo))
 ```
 
 Enable optional parent-edge tables before refinement (see

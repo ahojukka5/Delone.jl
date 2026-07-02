@@ -86,7 +86,7 @@ Delone.jl behave the way most Julia objects do (no manual `delete`/`free`,
 no dangling-pointer class of bug from normal use), which is a meaningfully
 different — and safer — situation than working with raw C++ pointers
 directly. That said, this package makes no *documented upstream guarantee*
-about `Internals`' CxxWrap-generated finalizers beyond ordinary Julia GC
+about `Netgen`'s CxxWrap-generated finalizers beyond ordinary Julia GC
 semantics — see "Open question" below before relying on this for anything
 safety-critical (e.g. holding a handle across a long-running external
 process boundary, or assuming finalization order relative to the geometry
@@ -120,7 +120,7 @@ rather than a live reference: a snapshot cannot "point at" a session in any
 GC sense, so the only way to know it might be out of date is to compare the
 recorded `generation` against the session's current one.
 
-## Open question: are `Internals`' finalizers documented upstream?
+## Open question: are `Netgen`'s finalizers documented upstream?
 
 No — as far as this repository's documentation goes, this is unverified.
 Neither [`docs/API_COVERAGE.md`](https://github.com/ahojukka5/Delone.jl/blob/master/docs/API_COVERAGE.md)
@@ -143,7 +143,7 @@ for you.
 
 The question above ("does *this* handle outlive its container?") has a mirror
 image that is arguably more concerning: `generate_mesh_result` (in
-`src/generation_result.jl`) calls `Internals.SetGeometry(m, geom)` once, at
+`src/generation_result.jl`) calls `Netgen.SetGeometry(m, geom)` once, at
 mesh-creation time, and never stores `geom` anywhere the returned mesh object
 itself keeps a Julia-level reference to. If Julia's GC were free to collect
 `geom` as soon as no Julia binding pointed at it — even while a mesh built
@@ -157,12 +157,12 @@ investigated empirically rather than assumed away.
 **Why the risk is structurally smaller than it first looks:** `refine!`,
 `bisect!`, and `make_second_order!` (`src/refinement.jl`) never receive a
 Julia `geom` argument at all — they fetch the geometry via
-`Internals.GetGeometry(m)`, i.e. **from the mesh object itself**, not from
+`Netgen.GetGeometry(m)`, i.e. **from the mesh object itself**, not from
 any Julia-side variable:
 
 ```julia
 function refine!(m)
-    Internals.Refine(Internals.GetRefinement(Internals.GetGeometry(m)), m)
+    Netgen.Refine(Netgen.GetRefinement(Netgen.GetGeometry(m)), m)
     return m
 end
 ```
@@ -255,13 +255,13 @@ no thread-safety mechanism anywhere in `src/` — no locks, no `Threads.@spawn`
 coordination, no documented concurrency contract for `MeshHierarchySession`,
 `MeshHierarchy`, or any live mesh/geometry handle. Treat every CxxWrap-wrapped
 handle and every mutable struct in this package (`MeshHierarchySession`,
-`MeshHierarchy`, and the raw `Internals` mesh/geometry objects) as **not
+`MeshHierarchy`, and the raw `Netgen` mesh/geometry objects) as **not
 safe for concurrent use from multiple threads** unless and until this
 package documents and tests a specific concurrency contract — this is a
 documentation statement of the honest default, not a result of testing actual
 concurrent access.
 
 Next: [Sessions & snapshots](sessions_snapshots.md) for the generation/staleness
-contract this page's snapshot contrast leans on, and [Internals escape
-hatch](internals_escape_hatch.md) for when you need to reach into
-`Delone.Internals` directly.
+contract this page's snapshot contrast leans on, and [Netgen escape
+hatch](netgen_escape_hatch.md) for when you need to reach into
+`Delone.Netgen` directly.

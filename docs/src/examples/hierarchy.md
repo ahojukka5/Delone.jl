@@ -78,13 +78,13 @@ mutation that isn't one of the `request_*!` refinements, use
 `level_mesh(s, k)` directly:
 
 <!-- not converted to @example: illustrates the mutate_level_mesh! pattern with
-     a placeholder do-block body ("in-place mesh mutation via Delone.Internals
+     a placeholder do-block body ("in-place mesh mutation via Delone.Netgen
      if needed") rather than a concrete mutation — there is no single concrete
-     Internals call that is representative here, and building one up just for
+     Netgen call that is representative here, and building one up just for
      a doctest is more trouble than the pattern is worth to pin. -->
 ```julia
 mutate_level_mesh!(s, 2) do m       # bump_generation=true by default
-    # in-place mesh mutation via Delone.Internals if needed
+    # in-place mesh mutation via Delone.Netgen if needed
 end                                  # -> returns the session; generation bumped
 ```
 

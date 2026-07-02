@@ -71,7 +71,7 @@ correct instead of mutating `level_mesh(s, k)` directly:
 ```@example sessions
 gen_before = generation(s)
 mutate_level_mesh!(s, 1) do m
-    update_topology!(m)   # any in-place Delone/Internals call on this level
+    update_topology!(m)   # any in-place Delone/Netgen call on this level
 end
 generation(s) == gen_before + 1
 ```

@@ -28,7 +28,7 @@ makedocs(
             "MeshOptions" => "mesh_options.md",
             "Sessions & snapshots" => "sessions_snapshots.md",
             "Introspection contract" => "introspection_contract.md",
-            "Internals escape hatch" => "internals_escape_hatch.md",
+            "Netgen escape hatch" => "netgen_escape_hatch.md",
             "Handles, ownership & GC" => "handles_gc.md",
         ],
         "Reference" => [

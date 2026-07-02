@@ -4,7 +4,7 @@ Alongside the mesh/geometry API, Delone.jl exposes a **read-only reporting
 layer**: structured, serializable results for validation, quality, meshability,
 and readiness checks. It exists so a calling tool, solver driver, or LLM agent
 can inspect *what happened* and *what to do next* without touching raw
-`Delone.Internals` handles. The generic entry points (`report`, `validate`,
+`Delone.Netgen` handles. The generic entry points (`report`, `validate`,
 `readiness`, `to_namedtuple`) are owned by **OodiCore**, a small shared
 contract package — Delone.jl only adds methods and concrete report types.
 `test/llm_feedback.jl` exercises this whole layer end to end and is the most
@@ -97,7 +97,7 @@ tr
 ```
 
 All report types have readable `show` methods (`string(r)`), and none of them
-expose `Delone.Internals` handles — `r.validation isa Delone.Internals.Mesh`
+expose `Delone.Netgen` handles — `r.validation isa Delone.Netgen.Mesh`
 is always `false`.
 
 ## Meshability: checking before you commit

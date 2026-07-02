@@ -16,7 +16,7 @@ and the caller — human or LLM — has no principled way to ask "what did I jus
 get?", "is it usable?", or "is it good enough for what I want to do next?".
 Delone.jl's public objects are designed to answer those questions directly
 instead of forcing every caller to re-derive them from scratch by poking at
-`Delone.Internals`.
+`Delone.Netgen`.
 
 The contract is deliberately **read-only**. `report`, `validate`, and
 `readiness` never mutate the object they inspect — mutation always goes
@@ -134,7 +134,7 @@ of any formal server existing:
   open-ended keyword bag, so a tool schema can enumerate the valid targets.
 - **Outputs are structured, not strings.** Every report is a Julia struct
   with named fields and a recursive [`to_namedtuple`](@ref) conversion —
-  the natural shape for a JSON tool-call response. Raw Netgen/`Internals`
+  the natural shape for a JSON tool-call response. Raw Netgen/`Netgen`
   handles are never serialized; a `MeshGenerationResult`, for instance,
   reports `has_mesh`, `node_count`, `cell_count` instead of embedding the
   live mesh object.

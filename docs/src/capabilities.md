@@ -1,7 +1,7 @@
 # Wrapped capabilities
 
 Raw bindings live in `NetgenCxxWrap_jll` (`libnetgen_cxxwrap`) and are loaded
-by `Delone.jl` under `Delone.Internals`; C++ names are preserved 1:1 there.
+by `Delone.jl` under `Delone.Netgen`; C++ names are preserved 1:1 there.
 The sections below group Delone.jl's high-level capabilities by workflow,
 noting the underlying Netgen/NGSolve entry points where useful. For per-class
 method lists see `docs/API_COVERAGE.md` in the package tree.
@@ -19,7 +19,7 @@ method lists see `docs/API_COVERAGE.md` in the package tree.
 
 ## Mesh generation & core `Mesh` API
 
-| Capability | Julian entry points | Internals (1:1) |
+| Capability | Julian entry points | Netgen (1:1) |
 |------------|---------------------|-----------------|
 | Generate from geometry | `generate_mesh`, `meshing_parameters` | `MeshingParameters`, `maxh!`, `GenerateMesh` |
 | Mesh I/O | `save_mesh`, `load_mesh` | `Save`, `Load` |
