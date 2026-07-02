@@ -4,7 +4,7 @@ Guidance for AI agents working in **Delone.jl** — a high-level, LLM-friendly
 meshing, refinement, mesh-diagnostics, and mesh-hierarchy package for numerical
 simulation workflows, built on top of **Netgen/NGSolve**, a mature and powerful
 open-source meshing technology. Delone.jl does not replace Netgen or reimplement
-a meshing kernel; raw Netgen/NGSolve C++ bindings live under `Delone.Internals`
+a meshing kernel; raw Netgen/NGSolve C++ bindings live under `Delone.Netgen`
 (strict 1:1 names from `NetgenCxxWrap_jll`) for advanced/backend use, while the
 top-level `Delone` module is the Julian, agent-friendly public API.
 
@@ -154,16 +154,16 @@ directions, not current requirements. First priority stays `report` / `validate`
 ## Architecture
 
 ```
-Delone                     exported Julian API (src/*.jl) — public, LLM-friendly
-  └── Delone.Internals     strict 1:1 CxxWrap bindings from NetgenCxxWrap_jll
-                            (raw Netgen/NGSolve backend; advanced/backend use)
+Delone                exported Julian API (src/*.jl) — public, LLM-friendly
+  └── Delone.Netgen    strict 1:1 CxxWrap bindings from NetgenCxxWrap_jll
+                        (raw Netgen/NGSolve backend; advanced/backend use)
 ```
 
-- `src/internals.jl` defines `module Internals`, loads `libnetgen_cxxwrap`, and
+- `src/netgen.jl` defines `module Netgen`, loads `libnetgen_cxxwrap`, and
   runs `@initcxx` inside its own `__init__`. **Never** move `@initcxx` to the
   parent module.
-- All C++ calls in high-level code go through `Internals.*`. `Internals` is
-  **not exported** — advanced callers use the fully qualified `Delone.Internals`.
+- All C++ calls in high-level code go through `Netgen.*`. `Netgen` is
+  **not exported** — advanced callers use the fully qualified `Delone.Netgen`.
   Most users and LLM agents should never need it; it exists for advanced users
   and backend development, not as the recommended default layer.
 - OCCT/CAD modeling lives in the sibling **OpenCascade.jl**; Delone only bridges
@@ -207,7 +207,7 @@ tradeoff explicitly.
   and `include` it. `Delone.jl` is only the module shell, includes, and exports.
 - **Exports are grouped by topic** with section comments (one `export` per group),
   not a single monolithic `export` line.
-- Julian helpers live in `Delone`, call `Internals.*` internally, use **1-based
+- Julian helpers live in `Delone`, call `Netgen.*` internally, use **1-based
   ids**, and **return `m`** (or the session/hierarchy) from mutating `!` functions.
 - Docstrings reference **Julian names**; mention C++ names in backticks for
   upstream lookup only.
@@ -215,7 +215,7 @@ tradeoff explicitly.
   silently reinterpreting elements. **Never invent 2D material/boundary names**
   (see the documented 2D limitation).
 - Reports are structured Julia types with readable `show` methods — never leak
-  raw `Internals` handles into public report fields.
+  raw `Netgen` handles into public report fields.
 - No FEM/solver logic here; this package owns mesh + hierarchy + metadata only.
 
 ## Build & test
@@ -232,7 +232,7 @@ Run the full suite (takes ~5–6 minutes; loads the native lib + OpenCascade.jl)
 julia --project=. test/runtests.jl
 ```
 
-- Tests reference raw bindings via `const I = Delone.Internals` (set in
+- Tests reference raw bindings via `const I = Delone.Netgen` (set in
   `test/runtests.jl`). New test files must be added to the `@testset` include list.
 - Fixtures live in `test/fixtures/` (`frame.step`, `cylinder.brep`, `tet.stl`).
 

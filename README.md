@@ -39,9 +39,9 @@ Delone.jl stands on the shoulders of **Netgen/NGSolve**, a mature open-source
 meshing technology. The goal of Delone.jl is not to replace Netgen, but to
 provide a clean Julia API and structured feedback layer for simulation-oriented
 meshing workflows. Advanced users and backend developers can access low-level
-Netgen/NGSolve bindings and backend structures through **`Delone.Internals`**;
+Netgen/NGSolve bindings and backend structures through **`Delone.Netgen`**;
 most users and LLM agents should use the high-level `Delone` API and never need
-to touch `Internals` directly.
+to touch `Netgen` directly.
 
 ## The Monge → Delone → Oodi pipeline
 
@@ -64,7 +64,7 @@ and explains the numerical model.
 NGSolveNetgen_jll   upstream NGSolve/Netgen binary (+ OpenCASCADE)
 NetgenCxxWrap_jll   libnetgen_cxxwrap: boring 1:1 CxxWrap wrapper of Netgen's C++ API
 Delone.jl           this package — Julian, LLM-friendly meshing/hierarchy/diagnostics API
-  └── Delone.Internals   the raw NetgenCxxWrap_jll bindings, re-exposed for advanced/backend use
+  └── Delone.Netgen   the raw NetgenCxxWrap_jll bindings, re-exposed for advanced/backend use
 ```
 
 ## Documentation
@@ -163,9 +163,9 @@ cell_regions(mesh)
 
 The **exported API is Julian** (`load_step`, `generate_mesh`, `save_mesh`,
 `update_topology!`, `refine!`, …). Strict 1:1 Netgen/NGSolve C++ bindings live in
-**`Delone.Internals`** for advanced/backend use (`Delone.Internals.GetNP`, …) but
+**`Delone.Netgen`** for advanced/backend use (`Delone.Netgen.GetNP`, …) but
 are not re-exported from the top-level module. Most users and LLM agents should
-never need `Internals`.
+never need `Netgen`.
 
 ## Structured reports & diagnostics
 
@@ -173,7 +173,7 @@ Alongside the mesh/geometry API, Delone.jl exposes a **read-only reporting
 layer** — structured, serializable results for validation, quality,
 meshability, and readiness checks, so a calling tool, solver driver, or LLM
 agent can inspect *what happened* and *what to do next* without touching raw
-`Delone.Internals` handles:
+`Delone.Netgen` handles:
 
 ```julia
 opts = MeshOptions(maxh=2.0, minh=0.1, grading=0.3)
@@ -258,7 +258,7 @@ directly and keep generation tracking correct, use the callback helper:
 
 ```julia
 mutate_level_mesh!(s, 2) do m       # bump_generation=true by default
-    # in-place mesh mutation via Delone.Internals if needed
+    # in-place mesh mutation via Delone.Netgen if needed
 end                                  # -> returns the session; generation bumped
 ```
 

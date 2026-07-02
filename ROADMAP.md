@@ -1,13 +1,13 @@
 # Delone.jl — finalization & polish roadmap
 
-*Based on the full-package audit of 2026-07-02 (API ergonomics, Internals→Julian
+*Based on the full-package audit of 2026-07-02 (API ergonomics, Netgen→Julian
 coverage gaps, documentation, tests, package hygiene). Companion background
 notes live in `audit/`.*
 
 ## Where the package stands
 
 The audit confirms the premise: **the wrapping work is essentially done, the
-product work is not.** `Delone.Internals` covers ~94 % of Netgen's `DLL_HEADER`
+product work is not.** `Delone.Netgen` covers ~94 % of Netgen's `DLL_HEADER`
 surface (`docs/API_COVERAGE.md`), the Julian layer exports ~190 names with
 near-complete docstring coverage, all report types print well, the
 hierarchy/session/snapshot design is coherent, and the test suite (~1400 LOC,
@@ -17,7 +17,7 @@ What is missing falls into four buckets, in decreasing order of user pain:
 
 1. **Julian feature gaps** — important, already-wrapped Netgen capabilities
    (local mesh sizing above all) that are unreachable without dropping to
-   `Internals`.
+   `Netgen`.
 2. **API ergonomics debt** — naming redundancy, Int32 leakage, undocumented
    handle lifetimes, missing ecosystem hooks.
 3. **Documentation gaps** — good example pages, but **no API reference at
@@ -33,7 +33,7 @@ The rest of this document is the concrete plan, organized as four workstreams
 
 ## Workstream A — close the Julian feature gaps
 
-These are capabilities **already wrapped and tested at the Internals level**
+These are capabilities **already wrapped and tested at the Netgen level**
 (evidence in `test/extras.jl`, `test/mesh2.jl`, `test/gprim.jl`, `test/stl.jl`)
 with no high-level API. Ordered by user impact.
 
@@ -247,7 +247,7 @@ CI. This converts the docs from "probably right" to "tested".
   own page.
 - **The introspection contract** (`report`/`validate`/`readiness`) — one page,
   with the AGENTS.md tables, aimed at agent authors.
-- **`Delone.Internals` escape hatch** — when to drop down, naming convention,
+- **`Delone.Netgen` escape hatch** — when to drop down, naming convention,
   the 1-based vs 0-based rule, link to `API_COVERAGE.md`.
 - **Handles & GC** (from B3).
 
@@ -442,6 +442,59 @@ updated in place rather than added).
 
 ---
 
+## Workstream F — multi-backend meshing architecture (started 2026-07-02)
+
+**Vision:** Delone.jl should not be permanently a Netgen-only wrapper.
+Other meshing backends (Gmsh, Neper for polycrystalline/Voronoi
+microstructure generation, potentially others) solve real, distinct
+problems Netgen doesn't cover well, and the package's Julian composition
+layer (structured reports, hierarchy/session model, introspection
+contract) is largely backend-agnostic in spirit already.
+
+### F1. Rename `Internals` → `Netgen` — **done (2026-07-02)**
+
+First step: renamed the single raw-bindings submodule from the generic
+`Delone.Internals` to the backend-specific `Delone.Netgen`, freeing the
+`Internals` name so a future second backend doesn't have to awkwardly
+share or fight over it. Mechanical rename across `src/`
+(`src/internals.jl` → `src/netgen.jl`), `test/`, and doc pages built
+around the concept (`internals_escape_hatch.md` → `netgen_escape_hatch.md`).
+No compatibility alias — pre-registration, no external consumers besides
+the sibling Oodi ecosystem, checked clean before the rename.
+
+### F2. Design the multi-backend seam — not started
+
+Genuinely open design questions before a second backend (Gmsh or Neper)
+can land, deliberately not pre-answered here:
+- **Namespace shape**: flat siblings (`Delone.Netgen`, `Delone.Gmsh`, ...)
+  vs. nested (`Delone.Backends.Netgen`, ...). Flat matches today's
+  `Delone.Netgen.*` call convention with zero migration cost; nested makes
+  "there is more than one backend" discoverable from the module tree itself.
+- **Shared vs. backend-specific Julian API surface**: does `generate_mesh`
+  stay one polymorphic entry point dispatching on geometry/option type
+  across backends, or does each backend get its own top-level verb (e.g.
+  `generate_mesh`/`generate_gmsh_mesh`/`generate_neper_mesh`)? The former
+  is more ergonomic but requires a real shared abstraction over
+  `MeshOptions`-equivalents, mesh handle types, and report shapes across
+  backends with genuinely different capabilities (Netgen's OCC-based BREP
+  meshing vs. Neper's Voronoi/Laguerre tessellation are not the same kind
+  of "mesh generation" underneath).
+- **Packaging**: does a new backend mean a new `*CxxWrap_jll` sibling repo
+  (matching `NetgenCxxWrap_jll`'s pattern) plus a new `include()`d
+  `src/<backend>.jl`, or does Delone.jl grow package extensions
+  (weakdeps) per backend so a user who only needs Netgen doesn't pull in
+  Gmsh's/Neper's native dependencies? The existing `DeloneMakieExt`/
+  `DeloneWriteVTKExt`/`DeloneGeometryBasicsExt` weakdep-extension pattern
+  is a plausible template for this, unlike the raw-bindings submodule
+  pattern Netgen itself uses (Netgen's bindings are a hard dependency,
+  not optional).
+
+Not scoped further until a decision is made on the above — this section
+records the stated direction and the real open questions, not a committed
+design.
+
+---
+
 ## Suggested sequencing
 
 **Phase 1 — "make it honest" (days).** D1 hygiene, C5 drift fixes, C1 API
@@ -451,7 +504,7 @@ now), Aqua in tests. Low effort, removes every "unfinished" smell.
 **Phase 2 — "make it complete" (1–2 weeks).** A1 local mesh sizing (flagship),
 A4 native quality metrics, A3 boundary naming, A5 STL options, B2 return-type
 polish, D3 test additions. After this, a user should almost never need
-`Internals`.
+`Netgen`.
 
 **Phase 3 — "make it shine" (1–2 weeks).** C2 tutorial, C3 doctests, C4 topic
 pages, B4 MIME show, B5 Makie/WriteVTK extensions, D2 CI + docs deploy. This is
@@ -496,7 +549,7 @@ See per-item status below — most items are done; a handful are intentionally
 still open (upstream-blocked, deliberately deferred, or lower-priority
 polish not yet scheduled).
 
-- [x] A user can do local refinement near a feature without touching `Internals`
+- [x] A user can do local refinement near a feature without touching `Netgen`
       — `refine_near!`/`MeshOptions.local_size`, genuinely localized in
       **both 2D and 3D** (2D dispatches to `mark_for_ngx_refinement!`/
       `ngx_refine!` internally, fixed 2026-07-02).

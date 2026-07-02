@@ -4,6 +4,18 @@ All notable changes to Delone.jl are documented in this file.
 
 ## [Unreleased]
 
+### Changed — renamed `Delone.Internals` to `Delone.Netgen`
+- **Breaking**: the raw CxxWrap bindings submodule is now `Delone.Netgen`
+  (was `Delone.Internals`); `src/internals.jl` is now `src/netgen.jl`. No
+  compatibility alias — this is a pre-registration (v0.1.0) package with no
+  external consumers besides the sibling Oodi ecosystem, checked clean
+  before the rename. First step toward supporting multiple meshing
+  backends (Gmsh, Neper, …) as sibling submodules alongside `Netgen`,
+  rather than a single generic `Internals` module that only ever wrapped
+  one backend. Every `Internals.*` call site across `src/`/`test/`, plus
+  doc pages built around the concept (`internals_escape_hatch.md` →
+  `netgen_escape_hatch.md`), were updated accordingly.
+
 ### Added — periodic boundary conditions (RVE / microstructure unit cells)
 - **`identify_periodic!`/`identify_periodic_box!`** (`src/periodic.jl`): set
   up pre-mesh periodic identification between OCC faces, so `generate_mesh`
