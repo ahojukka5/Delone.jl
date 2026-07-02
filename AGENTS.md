@@ -189,6 +189,18 @@ Delone                     exported Julian API (src/*.jl) — public, LLM-friend
 | `session.jl`, `snapshots.jl` | live `MeshHierarchySession` + copied snapshots |
 | `hp.jl`, `fem.jl`, `partition.jl`, `interop.jl` | hp-adaptivity, curved maps, partition hints, BREP bridge |
 
+## Connectivity element type: `Int32`, not `Int` (decided)
+
+Connectivity/index arrays (`tetrahedra`, `surface_triangles`, `parent_nodes`,
+`cell_regions`, `boundary_regions`, snapshot fields, etc.) return
+`Matrix{Int32}`/`Vector{Int32}`, matching Netgen's native C++ index type. This
+is a **deliberate, closed decision, not an open question**: converting to
+`Int` would double memory for large connectivity arrays with no real
+ergonomic benefit, since Julia's `Integer` supertype already makes `Int32`
+interoperate transparently with indexing, broadcasting, and comparisons
+everywhere `Int` would. Do not "fix" this to `Int` without re-opening the
+tradeoff explicitly.
+
 ## Conventions (match existing code)
 
 - **Do not put implementation directly in `src/Delone.jl`** — add a focused file

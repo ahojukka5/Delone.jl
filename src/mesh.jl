@@ -62,18 +62,20 @@ end
 mesh_dimension(m) = Int(Internals.GetDimension(m))
 
 """
-    connectivity(mesh) -> (volume, surface)
+    connectivity(mesh) -> (volume=..., surface=...)
 
-Top-dimensional and boundary connectivity as 1-based integer matrices. Dispatches
-on mesh dimension via [`volume_tetrahedra`](@ref)/[`triangles2d`](@ref) and
+Top-dimensional and boundary connectivity as 1-based integer matrices, returned
+as a `NamedTuple` (`volume`, `surface`; also destructures positionally as
+`(volume, surface)`). Dispatches on mesh dimension via
+[`volume_tetrahedra`](@ref)/[`triangles2d`](@ref) and
 [`surface_triangles`](@ref)/[`segments2d`](@ref).
 """
 function connectivity(m)
     d = mesh_dimension(m)
     if d == 3
-        return volume_tetrahedra(m), surface_triangles(m)
+        return (volume=volume_tetrahedra(m), surface=surface_triangles(m))
     elseif d == 2
-        return triangles2d(m), segments2d(m)
+        return (volume=triangles2d(m), surface=segments2d(m))
     else
         throw(ArgumentError("connectivity: unsupported mesh dimension $d"))
     end
@@ -131,14 +133,16 @@ function optimize_volume!(m; maxh::Real, throw_on_error::Bool=true, kwargs...)
 end
 
 """
-    mesh_bounding_box(mesh) -> ((xmin, ymin, zmin), (xmax, ymax, zmax))
+    mesh_bounding_box(mesh) -> (min=(xmin, ymin, zmin), max=(xmax, ymax, zmax))
 
-Axis-aligned bounding box from `Mesh::GetBox`.
+Axis-aligned bounding box from `Mesh::GetBox`, returned as a `NamedTuple`
+(`min`, `max`; also destructures positionally as `(lo, hi)`). Each field is a
+plain 3-tuple of coordinates.
 """
 function mesh_bounding_box(m)
     b = Internals.GetBox(m)
-    return ((Internals.MinX(b), Internals.MinY(b), Internals.MinZ(b)),
-            (Internals.MaxX(b), Internals.MaxY(b), Internals.MaxZ(b)))
+    return (min=(Internals.MinX(b), Internals.MinY(b), Internals.MinZ(b)),
+            max=(Internals.MaxX(b), Internals.MaxY(b), Internals.MaxZ(b)))
 end
 
 """compress!(mesh) -> mesh, remove unused mesh points in place."""

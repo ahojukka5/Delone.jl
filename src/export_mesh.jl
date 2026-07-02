@@ -120,7 +120,8 @@ function export_svg_2d(m, path::AbstractString)
         throw(ArgumentError("export_svg_2d requires a 2D mesh"))
     P = points(m)
     Tr = triangles2d(m)
-    (lo, hi) = mesh_bounding_box(m)
+    bbox = mesh_bounding_box(m)
+    lo, hi = bbox.min, bbox.max
     w = hi[1] - lo[1]
     h = hi[2] - lo[2]
     pad = 0.05 * max(w, h, 1e-12)

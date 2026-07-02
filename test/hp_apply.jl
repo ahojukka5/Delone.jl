@@ -12,8 +12,11 @@
     set_element_orders!(m, orders)
     @test element_orders(m)[1] == 3
     @test element_order(m) == 3
-    ox, oy, oz = element_orders_xyz(m)
+    ox, oy, oz = element_orders_xyz(m)   # positional destructuring still works
     @test length(ox) == ne
+    oxyz = element_orders_xyz(m)
+    @test oxyz isa NamedTuple
+    @test oxyz.ox == ox && oxyz.oy == oy && oxyz.oz == oz
 end
 
 @testset "set_surface_element_order! (3D boundary)" begin

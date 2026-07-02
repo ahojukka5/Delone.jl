@@ -7,19 +7,27 @@ end
 @testset "connectivity" begin
     geom = load_step(STEP)
     m = generate_mesh(geom; maxh=40.0)
-    vol, surf = connectivity(m)
+    vol, surf = connectivity(m)   # positional destructuring still works
     @test vol == tetrahedra(m)
     @test surf == surface_triangles(m)
+    c = connectivity(m)
+    @test c isa NamedTuple
+    @test c.volume == vol
+    @test c.surface == surf
 end
 
 @testset "mesh_bounding_box" begin
     geom = load_step(STEP)
     m = generate_mesh(geom; maxh=40.0)
-    (lo, hi) = mesh_bounding_box(m)
+    (lo, hi) = mesh_bounding_box(m)   # positional destructuring still works
     @test all(lo .< hi)
     b = I.GetBox(m)
     @test lo[1] ≈ I.MinX(b)
     @test hi[3] ≈ I.MaxZ(b)
+    bbox = mesh_bounding_box(m)
+    @test bbox isa NamedTuple
+    @test bbox.min == lo
+    @test bbox.max == hi
 end
 
 @testset "check_mesh" begin

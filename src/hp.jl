@@ -69,10 +69,11 @@ function hp_element_levels(m)
 end
 
 """
-    element_orders_xyz(mesh) -> (ox, oy, oz) vectors
+    element_orders_xyz(mesh) -> (ox=..., oy=..., oz=...) vectors
 
-Per cell anisotropic orders (`GetElementOrders`). In 2D, `oz` is filled but
-ignored by Netgen for surface elements.
+Per cell anisotropic orders (`GetElementOrders`), returned as a `NamedTuple`
+(`ox`, `oy`, `oz`; also destructures positionally as `(ox, oy, oz)`). In 2D,
+`oz` is filled but ignored by Netgen for surface elements.
 """
 function element_orders_xyz(m)
     nm = _ngx_mesh(m)
@@ -85,7 +86,7 @@ function element_orders_xyz(m)
         Internals.GetElementOrders(nm, i, buf)
         ox[i] = buf[1]; oy[i] = buf[2]; oz[i] = buf[3]
     end
-    return ox, oy, oz
+    return (ox=ox, oy=oy, oz=oz)
 end
 
 # --- order setters (p-refinement apply) -------------------------------------
