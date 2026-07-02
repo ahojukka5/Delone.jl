@@ -33,6 +33,7 @@ include("constants.jl")
 include("diagnostics.jl")
 include("geometry.jl")
 include("periodic.jl")
+include("gmsh_backend.jl")
 include("extraction.jl")
 include("tags.jl")
 include("mesh.jl")
@@ -85,6 +86,9 @@ export save_mesh, load_mesh
 export update_topology!, compress!
 export mesh_from_arrays
 export add_volume_element!, add_surface_element!
+
+# --- Gmsh backend (optional, weakdep) ---------------------------------------
+export generate_gmsh_mesh
 
 # --- mesh introspection -----------------------------------------------------
 export num_nodes, num_cells, num_boundary_facets, mesh_dimension, connectivity
