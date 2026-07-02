@@ -21,7 +21,7 @@ All fields have explicit defaults except `maxh`, which is required.
   do not influence this package's `generate_mesh` entry point). Each entry is
   `(point, h)` or `(point=..., h=..., radius=nothing, levels=1)`; `radius`
   defaults to `h` (elements within one target-size of `point` are refined) and
-  `levels` controls how many bisection passes are applied.
+  `levels` controls how many marked-refinement passes are applied.
 
 # Local mesh sizing caveat
 
@@ -30,15 +30,13 @@ Netgen exposes real local-h machinery (`RestrictLocalH`, `SetLocalH`,
 local-h field during surface meshing and discards any restriction applied
 beforehand — so those calls cannot steer element sizes during initial
 generation. `local_size` is therefore implemented as coarse generation followed
-by geometric mark-and-bisect refinement near each requested point (a
-mechanism proven to work in 3D; see `src/local_sizing.jl`). This gives locally
-finer elements near the requested points but is a distinct mechanism from a
-true graded local-h field: refinement proceeds by discrete bisection levels
-rather than a continuously graded size function. **In 2D, marked-element
-bisection was verified to refine uniformly regardless of which elements are
-marked** — `local_size` therefore currently only achieves uniform refinement
-in 2D, not spatial localization (see [`refine_near!`](@ref)); a warning is
-emitted the first time this happens in a session.
+by geometric mark-and-refine near each requested point (a mechanism verified
+to genuinely localize in both 2D and 3D; see `src/local_sizing.jl` — 3D uses
+`mark_for_refinement!`/`bisect!`, 2D uses `mark_for_ngx_refinement!`/
+`ngx_refine!`, since plain `bisect!` refines 2D meshes uniformly regardless of
+marking). This gives locally finer elements near the requested points but is
+a distinct mechanism from a true graded local-h field: refinement proceeds by
+discrete levels rather than a continuously graded size function.
 """
 Base.@kwdef struct MeshOptions
     maxh::Float64

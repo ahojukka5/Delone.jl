@@ -45,12 +45,13 @@ Int(num_cells(mesh2))
 **2D caveat:** [`mark_for_refinement!`](@ref) only sets flags on **3D volume**
 elements (`Internals.GetNE`/`VolumeElement`); on a 2D mesh it is a no-op, and
 Netgen's 2D bisection then refines **uniformly** regardless of marking — the
-block above quadruples the element count exactly, not just the marked quarter
-(matching the `local_size` caveat already documented on [`MeshOptions`](@ref)).
+block above quadruples the element count exactly, not just the marked quarter.
 For real element-wise adaptivity in 2D, mark with
 [`mark_for_ngx_refinement!`](@ref) and refine with [`ngx_refine!`](@ref) instead
 (see [Tags, hp-adaptivity & FEM data](@ref "Tags, hp-adaptivity & FEM data")) —
-that path does produce a genuinely localized element count increase. In 3D,
+that path does produce a genuinely localized element count increase, and is
+exactly what [`refine_near!`](@ref)/`MeshOptions.local_size` use for their 2D
+path (see [Local mesh sizing](@ref)) precisely because of this caveat. In 3D,
 `mark_for_refinement!` + `bisect!` performs true localized bisection.
 
 `BisectionOptions` fields (`refine_p`, `refine_hp`, …) are available on the C++

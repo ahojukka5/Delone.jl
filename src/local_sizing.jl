@@ -39,27 +39,26 @@
 # path in `to_meshing_parameters`/a post-generation hook, not to
 # `RestrictLocalH`.
 #
-# IMPORTANT 2D vs 3D asymmetry (verified empirically, see test/local_sizing.jl):
-#   - In 3D, marking elements before `bisect!` has a real, measurable
-#     localizing effect ON TOP OF `bisect!`'s otherwise mostly-uniform
-#     refinement: an apples-to-apples comparison (identical base mesh, marked
-#     vs. unmarked, same query location) showed meaningfully shorter edges and
-#     several times more elements near the marked region.
-#   - In 2D, the same apples-to-apples comparison showed ZERO difference
-#     between marking a small subset of triangles and marking nothing at all
-#     — `bisect!` on a 2D mesh refines fully uniformly regardless of
-#     `mark_for_refinement!` in this build. `refine_near!`/`local_size` still
-#     run without error in 2D (so callers aren't broken), but only achieve
-#     uniform refinement there, not spatial localization — flagged via a
-#     one-time `@warn`, not silently passed off as working.
-#
-#     POSSIBLE FIX PATH (found later, not yet integrated here): the
-#     `mark_for_ngx_refinement!`/`ngx_refine!` pair (see hp.jl) was verified
-#     in docs/src/examples/refinement.md to produce real localized refinement
-#     on a 2D mesh, unlike `mark_for_refinement!`/`bisect!`. `refine_near!`
-#     could likely be rewritten to use that pair for its 2D path instead of
-#     warning — worth a follow-up rather than assuming 2D localization is a
-#     fundamental limitation.
+# 2D vs 3D use different marked-refinement backends (verified empirically,
+# see test/local_sizing.jl):
+#   - In 3D, `mark_for_refinement!` + `bisect!` has a real, measurable
+#     localizing effect: an apples-to-apples comparison (identical base mesh,
+#     marked vs. unmarked, same query location) showed meaningfully shorter
+#     edges and several times more elements near the marked region.
+#   - In 2D, that same pipeline does NOT localize — `bisect!` on a 2D mesh
+#     refines fully uniformly regardless of `mark_for_refinement!` in this
+#     build (an apples-to-apples comparison showed zero difference between
+#     marking a subset of triangles and marking nothing at all). The
+#     `mark_for_ngx_refinement!`/`ngx_refine!` pair (see hp.jl), by contrast,
+#     DOES localize correctly in 2D: verified with an unmarked control pass
+#     (zero elements marked -> mesh unchanged, 56 -> 56 cells on a disk
+#     fixture) and a marked pass (3 elements marked near a boundary point ->
+#     56 -> 76 cells, with the extra density entirely concentrated near the
+#     marked point and zero extra elements near an unmarked point on the
+#     opposite side) — plus geometry-aware boundary projection intact (new
+#     boundary nodes still land exactly on the true circle). `refine_near!`
+#     therefore dispatches on dimension: 3D uses `mark_for_refinement!`/
+#     `bisect!`, 2D uses `mark_for_ngx_refinement!`/`ngx_refine!`.
 
 # --- standalone size field ---------------------------------------------------
 
@@ -221,17 +220,31 @@ function set_minimal_h!(m, h::Real)
     return m
 end
 
-# --- the mechanism that actually works: mark + bisect near a point ----------
+# --- the mechanism that actually works: mark + refine near a point ---------
+
+# Mark-and-refine, dispatching on dimension to the backend that actually
+# localizes in that dimension (see the module notes above).
+function _mark_and_refine!(m, d::Integer, marked)
+    if d == 3
+        mark_for_refinement!(m, marked)
+        bisect!(m)
+    else
+        mark_for_ngx_refinement!(m, marked)
+        ngx_refine!(m; reftype=NG_REFINE_H)
+    end
+    return m
+end
 
 """
     refine_near!(mesh, point; radius, levels=1) -> mesh
 
 Locally refine `mesh` near `point` by marking every element whose centroid
-lies within `radius` of `point` and running [`bisect!`](@ref), repeated
-`levels` times (each pass roughly halves local element size). This is the
-mechanism [`MeshOptions`](@ref)'s `local_size` option is built on, since
-Netgen's `RestrictLocalH`/`SetLocalH` do not feed back into this package's
-`generate_mesh` entry point (see the module notes in `local_sizing.jl`).
+lies within `radius` of `point` and running a marked-refinement pass,
+repeated `levels` times (each pass roughly halves local element size). This
+is the mechanism [`MeshOptions`](@ref)'s `local_size` option is built on,
+since Netgen's `RestrictLocalH`/`SetLocalH` do not feed back into this
+package's `generate_mesh` entry point (see the module notes in
+`local_sizing.jl`).
 
 `radius` must be `> 0`; `levels` must be `>= 1`. Each additional level roughly
 doubles element count *within* `radius`, so `levels >= 3` can blow up total
@@ -240,27 +253,23 @@ geometry) to occasionally produce a handful of inverted elements that Netgen's
 `CheckVolumeMesh` flags as warnings without failing — check `validate(mesh)`
 after aggressive local refinement.
 
-# Dimension-dependent effectiveness (verified empirically, not theoretical)
+# Backend (dimension-dependent, verified empirically — see `local_sizing.jl`'s
+module notes for the numbers)
 
-- **3D**: marking has a real, measurable localizing effect on top of
-  [`bisect!`](@ref)'s mostly-uniform base refinement — elements near `point`
-  end up noticeably denser than an identical unmarked bisection pass at the
-  same location (roughly 30–75% shorter edges and 2–4× more elements in the
-  same radius in the geometry this was checked against).
-- **2D**: in this build, [`bisect!`](@ref) refines uniformly regardless of
-  `mark_for_refinement!` — marking a subset of triangles produces an
-  *identical* result (same element count, same edge lengths everywhere) to
-  marking nothing. `refine_near!` still runs (so `MeshOptions.local_size` does
-  not error in 2D) but currently only achieves the *global* uniform refinement
-  that `levels` requests, not a spatially localized one; it emits a one-time
-  `@warn` the first time it is called on a 2D mesh in a session.
+- **3D**: [`mark_for_refinement!`](@ref) + [`bisect!`](@ref) — has a real,
+  measurable localizing effect on top of `bisect!`'s mostly-uniform base
+  refinement.
+- **2D**: [`mark_for_ngx_refinement!`](@ref) + [`ngx_refine!`](@ref) (not
+  `bisect!`, which refines 2D meshes uniformly regardless of marking in this
+  build) — genuinely localizes: an unmarked control pass leaves the mesh
+  unchanged, and a marked pass grows element count only near the marked
+  elements, with geometry-aware boundary projection intact.
 """
 function refine_near!(m, point; radius::Real, levels::Integer=1)
     radius > 0 || throw(ArgumentError("refine_near!: radius must be > 0 (got $radius)"))
     levels >= 1 || throw(ArgumentError("refine_near!: levels must be >= 1 (got $levels)"))
     center = collect(_as_ntuple3(point))
     d = mesh_dimension(m)
-    _warn_if_2d_localization_ineffective(d)
     for _ in 1:levels
         X = points(m)
         T = d == 3 ? tetrahedra(m) : triangles2d(m)
@@ -271,20 +280,9 @@ function refine_near!(m, point; radius::Real, levels::Integer=1)
             c = sum(X[:, T[i, e]] for i in 1:nv) ./ nv
             marked[e] = sqrt(sum((c .- center) .^ 2)) <= radius
         end
-        mark_for_refinement!(m, marked)
-        bisect!(m)
+        _mark_and_refine!(m, d, marked)
     end
     return m
-end
-
-let warned = Ref(false)
-    global function _warn_if_2d_localization_ineffective(d::Integer)
-        if d == 2 && !warned[]
-            warned[] = true
-            @warn "refine_near!/MeshOptions.local_size: in this build, 2D bisect! refines uniformly regardless of marked elements, so local refinement near a point is not spatially localized in 2D (3D is unaffected). See the refine_near! docstring."
-        end
-        return nothing
-    end
 end
 
 """
@@ -293,14 +291,13 @@ end
 Refine near each of several points in a single pass per level (elements within
 `radius` of *any* listed point are marked together, rather than iterating
 [`refine_near!`](@ref) point-by-point). See the single-point [`refine_near!`](@ref)
-docstring for the 2D-vs-3D effectiveness caveat.
+docstring for the dimension-dependent backend.
 """
 function refine_near!(m, pts::AbstractVector; radius::Real, levels::Integer=1)
     radius > 0 || throw(ArgumentError("refine_near!: radius must be > 0 (got $radius)"))
     levels >= 1 || throw(ArgumentError("refine_near!: levels must be >= 1 (got $levels)"))
     centers = [collect(_as_ntuple3(p)) for p in pts]
     d = mesh_dimension(m)
-    _warn_if_2d_localization_ineffective(d)
     for _ in 1:levels
         X = points(m)
         T = d == 3 ? tetrahedra(m) : triangles2d(m)
@@ -311,8 +308,7 @@ function refine_near!(m, pts::AbstractVector; radius::Real, levels::Integer=1)
             c = sum(X[:, T[i, e]] for i in 1:nv) ./ nv
             marked[e] = any(center -> sqrt(sum((c .- center) .^ 2)) <= radius, centers)
         end
-        mark_for_refinement!(m, marked)
-        bisect!(m)
+        _mark_and_refine!(m, d, marked)
     end
     return m
 end

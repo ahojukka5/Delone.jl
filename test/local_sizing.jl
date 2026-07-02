@@ -139,7 +139,11 @@ end
     @test_throws ArgumentError mesh_options(; maxh=40.0, local_size=[(point=target,)])
 end
 
-@testset "MeshOptions(local_size=...) in 2D: verified to run, but NOT spatially localized in this build" begin
+@testset "plain mark_for_refinement!/bisect! does NOT localize in 2D (raw fact, not what refine_near! uses)" begin
+    # This documents a real, still-true fact about the raw bisect! pipeline in
+    # 2D -- it is NOT what refine_near!/local_size use in 2D (see the next
+    # testset), which dispatches to mark_for_ngx_refinement!/ngx_refine!
+    # instead specifically because of this limitation.
     disk = Circle(0.0, 0.0, 1.0, "disk", "circle")
     geo = geometry2d(disk)
     m_base = generate_mesh(geo; maxh=0.15)
@@ -147,9 +151,6 @@ end
     X0 = points(m_base); T0 = triangles2d(m_base)
     target = [0.0, 0.0, 0.0]
 
-    # apples-to-apples: marked-near-target bisect! vs fully-unmarked bisect!
-    # from the SAME base mesh produce IDENTICAL results in 2D — documented
-    # limitation, not silently claimed to work.
     marked = falses(ne0)
     for e in 1:ne0
         verts = T0[:, e]
@@ -170,15 +171,42 @@ end
     near_marked = helper_tri_edges_near(Xm, Tm, target, 0.1)
     near_unmarked = helper_tri_edges_near(Xu, Tu, target, 0.1)
     @test sum(near_marked) / length(near_marked) ≈ sum(near_unmarked) / length(near_unmarked)
+end
 
-    # refine_near! still runs without error in 2D (uniform refinement, not
-    # localized) and MeshOptions.local_size does not error either.
+@testset "refine_near!/MeshOptions.local_size DOES localize in 2D (via mark_for_ngx_refinement!/ngx_refine!)" begin
+    disk = Circle(0.0, 0.0, 1.0, "disk", "circle")
+    geo = geometry2d(disk)
+    m_base = generate_mesh(geo; maxh=0.3)
+    ne0 = num_cells(m_base)
+    target = (1.0, 0.0)
+
+    # apples-to-apples control: an UNMARKED ngx_refine! pass leaves the mesh
+    # unchanged (unlike bisect!, which always refines uniformly regardless).
+    m_unmarked = copy_mesh(m_base)
+    mark_for_ngx_refinement!(m_unmarked, falses(ne0))
+    ngx_refine!(m_unmarked; reftype=NG_REFINE_H)
+    @test num_cells(m_unmarked) == ne0
+
+    # refine_near! near a boundary point grows the mesh...
     m2 = copy_mesh(m_base)
-    ne_before = num_cells(m2)
-    refine_near!(m2, (0.0, 0.0); radius=0.2, levels=1)
-    @test num_cells(m2) > ne_before
+    refine_near!(m2, target; radius=0.3, levels=1)
+    @test num_cells(m2) > ne0
 
-    opts = mesh_options(; maxh=0.15, local_size=[(point=(0.0, 0.0), h=0.05, radius=0.2)])
+    # ...and the growth is genuinely localized: more elements close to the
+    # target than close to a point on the opposite side of the disk.
+    X2 = points(m2); T2 = triangles2d(m2)
+    near_target = length(helper_tri_edges_near(X2, T2, [target..., 0.0], 0.15))
+    near_far = length(helper_tri_edges_near(X2, T2, [-target[1], -target[2], 0.0], 0.15))
+    @test near_target > near_far
+
+    # geometry-aware: new boundary nodes still land exactly on the true circle.
+    S2 = segments2d(m2)
+    bnodes = unique(vec(S2))
+    radii = [hypot(X2[1, i], X2[2, i]) for i in bnodes]
+    @test all(r -> isapprox(r, 1.0; atol=1e-9), radii)
+
+    opts = mesh_options(; maxh=0.3, local_size=[(point=target, h=0.05, radius=0.3)])
     res = generate_mesh_result(geo, opts)
     @test res.success
+    @test num_cells(res.mesh) > ne0
 end

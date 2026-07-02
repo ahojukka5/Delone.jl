@@ -4,6 +4,15 @@ All notable changes to Delone.jl are documented in this file.
 
 ## [Unreleased]
 
+### Fixed
+- `refine_near!`/`MeshOptions.local_size` now genuinely localizes in 2D, not
+  just 3D. Previously, 2D used `mark_for_refinement!`/`bisect!`, which
+  refines 2D meshes uniformly regardless of marking; it now uses
+  `mark_for_ngx_refinement!`/`ngx_refine!(reftype=NG_REFINE_H)` instead,
+  verified to genuinely localize (an unmarked control pass leaves the mesh
+  unchanged; a marked pass grows element count only near the marked
+  elements) while preserving geometry-aware boundary projection.
+
 ### Added (C++ binding improvements — NetgenCxxWrap_jll)
 Three of the Julian-layer gaps found during Phase 2/4 were genuinely fixable
 by extending the CxxWrap binding layer (not just documenting a limitation);

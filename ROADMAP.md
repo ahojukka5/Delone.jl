@@ -387,8 +387,9 @@ still open (upstream-blocked, deliberately deferred, or lower-priority
 polish not yet scheduled).
 
 - [x] A user can do local refinement near a feature without touching `Internals`
-      — `refine_near!`/`MeshOptions.local_size` (3D; 2D uniform-only, a real
-      fix path via `ngx_refine!` is identified but not yet wired in).
+      — `refine_near!`/`MeshOptions.local_size`, genuinely localized in
+      **both 2D and 3D** (2D dispatches to `mark_for_ngx_refinement!`/
+      `ngx_refine!` internally, fixed 2026-07-02).
 - [x] A mesh can enter and leave Delone as plain arrays — `mesh_from_arrays`
       (whole-mesh, 3D only, 2D deferred) plus `add_volume_element!`/
       `add_surface_element!` (incremental, one element at a time).

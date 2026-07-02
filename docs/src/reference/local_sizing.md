@@ -8,11 +8,11 @@ package actually uses to produce elements that are finer near a point.
     do **not** influence [`generate_mesh`](@ref) — `GenerateMesh` recomputes
     its own local-h field during surface meshing and discards any restriction
     applied beforehand. `MeshOptions.local_size` and [`refine_near!`](@ref)
-    therefore work by coarse generation followed by geometric mark-and-bisect
-    refinement near the requested points — a mechanism verified to work in
-    3D. **In 2D, marked-element bisection refines uniformly regardless of
-    which elements are marked** in this build, so `local_size` only achieves
-    uniform refinement in 2D, not spatial localization. See
+    therefore work by coarse generation followed by geometric mark-and-refine
+    near the requested points — verified to genuinely localize in **both 2D
+    and 3D**: 3D uses `mark_for_refinement!`/`bisect!`; 2D uses
+    `mark_for_ngx_refinement!`/`ngx_refine!` instead, since plain `bisect!`
+    refines 2D meshes uniformly regardless of marking. See
     [`refine_near!`](@ref)'s docstring for the full empirical writeup.
 
 ## Standalone size field
