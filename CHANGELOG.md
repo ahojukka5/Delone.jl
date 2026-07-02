@@ -4,6 +4,25 @@ All notable changes to Delone.jl are documented in this file.
 
 ## [Unreleased]
 
+### Changed (roadmap Phase 5.3 — breaking API fixes)
+- **`optimize_volume!` now returns the mesh, not a status code**, matching
+  AGENTS.md's "mutating `!` functions return the mesh" convention that every
+  other `!` function already followed. `throw_on_error=true` (default):
+  unchanged throwing behavior, now returns `mesh` on success.
+  `throw_on_error=false`: returns `(mesh=, status=)` instead of a bare `Int`,
+  so the Netgen status is still recoverable via `.status`. **Breaking**: code
+  calling `optimize_volume!(...; throw_on_error=false)` and treating the
+  result as an `Int` status must switch to `.status`.
+- **`mesh(result::MeshGenerationResult)` renamed to `generated_mesh`** to
+  stop colliding with the near-universal local variable name `mesh` (as in
+  `mesh = generate_mesh(...)`, which then shadowed the exported accessor).
+  `mesh(result)` is now `Base.@deprecate`d to `generated_mesh(result)`.
+- **`unsafe_level_mesh` deprecated** — it was a bare alias for `level_mesh`
+  (`unsafe_level_mesh(s, k) === level_mesh(s, k)`), so the `unsafe_` naming
+  provided no actual type-level protection against mutating the returned
+  handle directly. `level_mesh`'s own docstring now carries the same
+  warning; use `mutate_level_mesh!` for generation-tracked mutation.
+
 ### Fixed (roadmap Phase 5.2 — AGENTS.md-convention bugfixes)
 - `load_geometry` threw a bare `ErrorException` on an unsupported file
   extension instead of `ArgumentError`, violating AGENTS.md's explicit
