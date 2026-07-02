@@ -462,36 +462,48 @@ around the concept (`internals_escape_hatch.md` → `netgen_escape_hatch.md`).
 No compatibility alias — pre-registration, no external consumers besides
 the sibling Oodi ecosystem, checked clean before the rename.
 
-### F2. Design the multi-backend seam — not started
+### F2. Design the multi-backend seam — **resolved for Gmsh (2026-07-02)**
 
-Genuinely open design questions before a second backend (Gmsh or Neper)
-can land, deliberately not pre-answered here:
-- **Namespace shape**: flat siblings (`Delone.Netgen`, `Delone.Gmsh`, ...)
-  vs. nested (`Delone.Backends.Netgen`, ...). Flat matches today's
-  `Delone.Netgen.*` call convention with zero migration cost; nested makes
-  "there is more than one backend" discoverable from the module tree itself.
-- **Shared vs. backend-specific Julian API surface**: does `generate_mesh`
-  stay one polymorphic entry point dispatching on geometry/option type
-  across backends, or does each backend get its own top-level verb (e.g.
-  `generate_mesh`/`generate_gmsh_mesh`/`generate_neper_mesh`)? The former
-  is more ergonomic but requires a real shared abstraction over
-  `MeshOptions`-equivalents, mesh handle types, and report shapes across
-  backends with genuinely different capabilities (Netgen's OCC-based BREP
-  meshing vs. Neper's Voronoi/Laguerre tessellation are not the same kind
-  of "mesh generation" underneath).
-- **Packaging**: does a new backend mean a new `*CxxWrap_jll` sibling repo
-  (matching `NetgenCxxWrap_jll`'s pattern) plus a new `include()`d
-  `src/<backend>.jl`, or does Delone.jl grow package extensions
-  (weakdeps) per backend so a user who only needs Netgen doesn't pull in
-  Gmsh's/Neper's native dependencies? The existing `DeloneMakieExt`/
-  `DeloneWriteVTKExt`/`DeloneGeometryBasicsExt` weakdep-extension pattern
-  is a plausible template for this, unlike the raw-bindings submodule
-  pattern Netgen itself uses (Netgen's bindings are a hard dependency,
-  not optional).
+Research comparing `gmsh_jll` and `neper_jll` (both build recipes read
+directly in Yggdrasil) found a decisive difference: `neper_jll` ships only a
+bare CLI executable (no library, no C API — subprocess + custom text-format
+parsing, a different integration shape entirely), while `gmsh_jll` ships a
+real shared library **plus** a complete, official, auto-generated Julia API
+(`gmsh_jll.gmsh_api`, produced by Gmsh's own build). Gmsh needed **no new
+hand-written CxxWrap binding layer at all**, unlike Netgen. Chose Gmsh for
+this round; Neper remains open for a future, differently-shaped effort
+(subprocess + `.tess`/mesh-file parsing, not this pattern).
 
-Not scoped further until a decision is made on the above — this section
-records the stated direction and the real open questions, not a committed
-design.
+Decisive discovery during research: this exact ecosystem already has a
+registered `Gmsh` Julia package (safely wrapping `gmsh_jll`) and working
+prior art in sibling repos `Oodi.jl`/`JuliaFEM.jl` (`OodiGmshExt.jl`,
+`JuliaFEMGmshExt.jl`) — this integration follows that established
+convention rather than inventing a new one. Resolved, for Gmsh specifically:
+- **Namespace**: no `Delone.Gmsh` raw-bindings submodule at all — moot for
+  Gmsh, since its upstream-generated API already *is* the 1:1 raw layer
+  (wrapped a second time, safely, by the registered `Gmsh` package).
+  Re-wrapping it inside Delone would be pure duplication. Advanced users
+  reach raw Gmsh via `Gmsh.gmsh.*` directly.
+- **API surface**: separate verb (`generate_gmsh_mesh`), not
+  `generate_mesh(...; backend=:gmsh)` — Gmsh's v1 input (a file path) and
+  Netgen-shaped `MeshOptions` don't share enough structure to unify
+  honestly without silently-ignored fields.
+- **Packaging**: weakdep + package extension (`DeloneGmshExt`), matching
+  `DeloneMakieExt`/`DeloneWriteVTKExt`/`DeloneGeometryBasicsExt` — `gmsh_jll`
+  pulls in Cairo/FLTK/X11/its own OCCT, real weight a Netgen-only user
+  shouldn't pay by default.
+
+Empirically verified (not just assumed): Netgen and Gmsh coexist safely in
+one process in both call orders (both link OpenCASCADE via a shared,
+overlapping `OCCT_jll` compat range, so Julia's resolver picks one shared
+artifact) — see `test/gmsh_backend.jl`'s coexistence smoke test. `generate_gmsh_mesh`
+returns a `MeshLevelSnapshot` directly, so `export_vtk`/`export_vtu`/
+`GeometryBasics.Mesh`/Makie plotting all work on Gmsh output for free.
+
+Still open: whether/how Neper (Voronoi/Laguerre polycrystal tessellation —
+directly relevant to the user's RVE homogenization work) gets integrated,
+given its CLI-only, no-library packaging is a fundamentally different shape
+than this Gmsh integration.
 
 ---
 

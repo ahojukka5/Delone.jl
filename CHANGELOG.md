@@ -4,6 +4,28 @@ All notable changes to Delone.jl are documented in this file.
 
 ## [Unreleased]
 
+### Added — Gmsh as a second, optional meshing backend
+- **`generate_gmsh_mesh(path; maxh=nothing) -> MeshLevelSnapshot`**
+  (`ext/DeloneGmshExt.jl`, active once the registered `Gmsh` package is
+  loaded): meshes a STEP/IGES/BREP file via Gmsh's OpenCASCADE-based CAD
+  kernel and volume mesher, as an alternative to the default Netgen backend.
+  Unlike Netgen, Gmsh needed no hand-written CxxWrap binding layer —
+  `gmsh_jll` ships a complete, official, auto-generated Julia API, safely
+  wrapped by the registered `Gmsh` package (per-call `initialize`/`finalize`,
+  only finalizing if this call was the one that initialized, avoiding a
+  latent robustness gap present in this ecosystem's other Gmsh extensions).
+  Returns a plain `MeshLevelSnapshot`, so `export_vtk`/`export_vtu`/
+  `GeometryBasics.Mesh`/Makie plotting all work on Gmsh output for free.
+  Verified: Netgen and Gmsh coexist safely in one process in both call
+  orders; bounding boxes of the same STEP file match exactly between the
+  two independently-triangulating backends.
+- Chose Gmsh over Neper for this round after comparing both Yggdrasil build
+  recipes directly: `neper_jll` ships only a bare CLI executable (no
+  library/API — a fundamentally different, heavier integration shape),
+  while `gmsh_jll` ships a real library plus a ready-made Julia API. See
+  ROADMAP.md's Workstream F2 for the full reasoning; Neper remains open for
+  a future, differently-shaped effort.
+
 ### Changed — renamed `Delone.Internals` to `Delone.Netgen`
 - **Breaking**: the raw CxxWrap bindings submodule is now `Delone.Netgen`
   (was `Delone.Internals`); `src/internals.jl` is now `src/netgen.jl`. No
