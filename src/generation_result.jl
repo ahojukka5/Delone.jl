@@ -266,14 +266,38 @@ end
 Base.@deprecate try_generate_mesh(geom, opts::MeshOptions) generate_mesh_result(geom, opts)
 
 """
-    generate_mesh(geometry; options=nothing, maxh=nothing, result=false, kwargs...) -> mesh | MeshGenerationResult
+    generate_mesh(geometry; options=nothing, maxh=nothing, result=false,
+                  backend=:netgen, kwargs...) -> mesh | MeshGenerationResult | MeshLevelSnapshot
 
 Mesh `geometry` using [`MeshOptions`](@ref) or legacy `maxh` keywords.
 
 - `result=false` (default): return the mesh handle; throw on failure.
 - `result=true`: return [`MeshGenerationResult`](@ref) with diagnostics.
+
+`backend=:netgen` (default) uses the always-available Netgen backend
+described above. `backend=:gmsh` instead delegates to
+[`generate_gmsh_mesh`](@ref) (requires `using Gmsh`; throws a clear
+`ArgumentError` otherwise) and returns a `MeshLevelSnapshot` directly —
+Gmsh's own session model has no comparable live mesh handle to return.
+Under `backend=:gmsh`, `geom` must be a file path (STEP/IGES/BREP; Gmsh's
+own API is file-based, unlike Netgen's geometry objects), only `maxh` is
+honored, and `options=`/`result=true` throw `ArgumentError` rather than
+silently ignoring Netgen-specific settings Gmsh has no equivalent for.
 """
-function generate_mesh(geom; options=nothing, maxh=nothing, result::Bool=false, kwargs...)
+function generate_mesh(geom; options=nothing, maxh=nothing, result::Bool=false,
+                        backend::Symbol=:netgen, kwargs...)
+    if backend === :gmsh
+        (options === nothing && !result) || throw(ArgumentError(
+            "generate_mesh: backend=:gmsh does not support options=MeshOptions(...) " *
+            "or result=true (Netgen-specific structured diagnostics); only maxh is " *
+            "currently honored for the Gmsh backend"))
+        geom isa AbstractString || throw(ArgumentError(
+            "generate_mesh: backend=:gmsh expects geom to be a file path " *
+            "(STEP/IGES/BREP), got $(typeof(geom))"))
+        return generate_gmsh_mesh(geom; maxh=maxh)
+    elseif backend !== :netgen
+        throw(ArgumentError("generate_mesh: unknown backend $backend (expected :netgen or :gmsh)"))
+    end
     if options === nothing
         maxh === nothing &&
             throw(ArgumentError("provide maxh or options=MeshOptions(...)"))
