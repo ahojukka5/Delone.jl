@@ -88,6 +88,9 @@ for a full walkthrough.
 |------------|--------------|
 | VTK / OBJ / SVG export | `export_vtk`, `export_obj`, `export_svg_2d`, `export_mesh_preview` |
 | Tempfile previews | `mesh_preview`, `mesh_previews` |
+| Binary VTU export (weakdep `WriteVTK`) | `export_vtu` via `DeloneWriteVTKExt` — cell data (`region`, `boundary_region`, `is_boundary`) |
+| Makie plotting (weakdep `Makie`) | `Makie.mesh`/`Makie.mesh!`/`Makie.plot` recipes via `DeloneMakieExt` |
+| GeometryBasics interop (weakdep `GeometryBasics`) | `GeometryBasics.Mesh(::MeshLevelSnapshot)` via `DeloneGeometryBasicsExt` |
 
 ## Tags, regions & names
 

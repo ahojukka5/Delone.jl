@@ -216,4 +216,9 @@ ps = mesh_previews(m; formats=[:vtk, :obj])          # one tempfile per format
 (isfile(vtk_path), isfile(obj_path), isfile(svg_path), isfile(p1), all(isfile, ps))
 ```
 
+For real binary/compressed VTU with cell data, Makie plotting, or
+GeometryBasics interop, see the [package extensions](../reference/export.md#Package-extensions)
+(`DeloneWriteVTKExt`, `DeloneMakieExt`, `DeloneGeometryBasicsExt`) — each
+activates once the corresponding optional dependency is loaded.
+
 Next: [Tags, hp-adaptivity & FEM data](@ref "Tags, hp-adaptivity & FEM data").

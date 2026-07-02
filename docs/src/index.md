@@ -35,6 +35,7 @@ Delone.jl           Julian helpers + live hierarchy / snapshot contract
 | **hp / FEM metadata** | Read and apply element orders; hp refinement hooks; curved element maps; parent edge/face topology. |
 | **Tags** | Volume/surface/segment region ids and names (with documented 2D name limitations). |
 | **Introspection** | Structured, serializable reports (`mesh_report`, `hierarchy_report`, `meshability_report`) via the `report`/`validate`/`readiness`/`to_namedtuple` contract. |
+| **Export & ecosystem** | Dependency-free ASCII VTK/OBJ/SVG export; optional weakdep extensions — `DeloneWriteVTKExt` (real binary/compressed VTU), `DeloneMakieExt` (`Makie.mesh`/`plot` recipes), `DeloneGeometryBasicsExt` (`GeometryBasics.Mesh` interop). See [Export & preview](reference/export.md#Package-extensions). |
 
 ## Quick start
 
