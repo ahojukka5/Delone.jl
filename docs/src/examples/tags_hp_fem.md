@@ -165,10 +165,10 @@ println("has_parent_edges: ", has_parent_edges(topo_mesh))
 ne = num_cells(topo_mesh)
 println("parent_edges(mesh, ", ne, "): ", parent_edges(topo_mesh, ne))   # orientation + parent edge indices
 
-# NOTE: in this Netgen build, `parent_faces`'s 2nd–4th return values read
+# NOTE: in this Netgen build, `parent_faces`'s f1-f4 fields read
 # uninitialized memory when a face has no parent (values vary run to run) —
-# only the first field (orientation `info`) is reliable to display here.
-println("parent_faces(mesh, 1) info: ", parent_faces(topo_mesh, 1)[1])
+# only the `info` field (orientation) is reliable to display here.
+println("parent_faces(mesh, 1) info: ", parent_faces(topo_mesh, 1).info)
 println("face_edges(mesh, 1): ", face_edges(topo_mesh, 1))              # needs up-to-date topology
 ```
 
@@ -183,7 +183,7 @@ println("periodic_vertex_pairs(mesh, 1): ", periodic_vertex_pairs(mesh, 1)) # 1-
 
 ```@example tags_hp_fem
 x = points(mesh)[:, 1]
-loc = find_element(mesh, x)             # (cell_nr, λ) or nothing
+loc = find_element(mesh, x)             # (cell=, lambda=) NamedTuple, or nothing
 println("find_element found a cell: ", loc !== nothing)
 println("mesh_h_at_point(mesh, 1) > 0: ", mesh_h_at_point(mesh, 1) > 0)
 ```

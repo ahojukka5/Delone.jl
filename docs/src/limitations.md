@@ -36,7 +36,8 @@ Several `Ngx_Mesh` hp methods are bound but require **hp internal state**:
 ### `parent_faces` — uninitialized memory on faces with no parent (Netgen core bug)
 
 `parent_faces(mesh, fnr)` (`src/fem.jl`, wraps `Internals.GetParentFaces`)
-returns `(info, f1, f2, f3, f4)`. When a face has no parent, fields `f2`–`f4`
+returns a `(info=, f1=, f2=, f3=, f4=)` `NamedTuple`. When a face has no
+parent, fields `f2`–`f4`
 were observed to vary non-deterministically between runs on identical input
 — consistent with reading uninitialized memory rather than a documented "no
 parent" sentinel. Only `info` (the first field, orientation) is currently

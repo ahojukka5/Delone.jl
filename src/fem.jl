@@ -20,18 +20,20 @@ function _unpack_jacobian(dxdxi::AbstractVector, nspace::Int, nlocal::Int)
 end
 
 """
-    volume_element_transformation(mesh, enr, xi) -> (x, J)
+    volume_element_transformation(mesh, enr, xi) -> (x=..., J=...)
 
 Map reference coordinates `xi` (length 3) on volume element `enr` (1-based) to
 physical point `x` (length 3) and Jacobian `J` (3×3, row-major from Netgen).
 Requires curved-element state (e.g. after [`make_second_order!`](@ref)).
+Returned as a `NamedTuple` (`x`, `J`; also destructures positionally as
+`(x, J)`).
 """
 function volume_element_transformation(m, enr::Integer, xi::AbstractVector{<:Real})
     length(xi) == 3 || throw(ArgumentError("xi must have length 3 (got $(length(xi)))"))
     x = zeros(Float64, 3)
     jac = zeros(Float64, 9)
     Internals.ElementTransformation33(_ngx(m), Int(enr) - 1, collect(Float64, xi), x, jac)
-    return x, _unpack_jacobian(jac, 3, 3)
+    return (x=x, J=_unpack_jacobian(jac, 3, 3))
 end
 
 """
@@ -129,29 +131,31 @@ is `false` on a fresh mesh until you call
 has_parent_edges(m) = Internals.HasParentEdges(_ngx(m))
 
 """
-    parent_edges(mesh, enr) -> (info, e1, e2, e3)
+    parent_edges(mesh, enr) -> (info=..., e1=..., e2=..., e3=...)
 
 Parent-edge data for volume element `enr` (1-based). Returns Netgen orientation
 `info` and up to three parent edge indices (0-based Netgen edge numbers as
-returned by the binding). Requires [`has_parent_edges`](@ref)(mesh).
+returned by the binding). Requires [`has_parent_edges`](@ref)(mesh). Returned
+as a `NamedTuple` (also destructures positionally as `(info, e1, e2, e3)`).
 """
 function parent_edges(m, enr::Integer)
     has_parent_edges(m) || throw(ArgumentError(
         "parent_edges requires parent-edge maps; refine the mesh first"))
     info, e1, e2, e3 = Internals.GetParentEdges(_ngx(m), Int(enr) - 1)
-    return Int(info), Int(e1), Int(e2), Int(e3)
+    return (info=Int(info), e1=Int(e1), e2=Int(e2), e3=Int(e3))
 end
 
 """
-    parent_faces(mesh, fnr) -> (info, f1, f2, f3, f4)
+    parent_faces(mesh, fnr) -> (info=..., f1=..., f2=..., f3=..., f4=...)
 
-Parent-face data for face `fnr` (1-based topology face index).
+Parent-face data for face `fnr` (1-based topology face index). Returned as a
+`NamedTuple` (also destructures positionally as `(info, f1, f2, f3, f4)`).
 """
 function parent_faces(m, fnr::Integer)
     has_parent_edges(m) || throw(ArgumentError(
         "parent_faces requires parent topology; refine the mesh first"))
     info, f1, f2, f3, f4 = Internals.GetParentFaces(_ngx(m), Int(fnr) - 1)
-    return Int(info), Int(f1), Int(f2), Int(f3), Int(f4)
+    return (info=Int(info), f1=Int(f1), f2=Int(f2), f3=Int(f3), f4=Int(f4))
 end
 
 """
@@ -191,12 +195,13 @@ end
 
 """
     find_element(mesh, x; build_searchtree=false, hint=nothing, tol=1e-4)
-        -> Union{Nothing, Tuple{Int, Vector{Float64}}}
+        -> Union{Nothing, NamedTuple}
 
-Locate the mesh cell containing physical point `x` and return `(cell_nr, λ)` where
-`cell_nr` is **1-based** and `λ` are the reference/barycentric coordinates from
-`Ngx_Mesh::FindElementOfPoint` (length 1 for segments, 2 for surface/domain
-triangles, 4 for volume tets in 3D). Returns `nothing` when no cell contains the
+Locate the mesh cell containing physical point `x` and return `(cell=, lambda=)`
+where `cell` is **1-based** and `lambda` are the reference/barycentric
+coordinates from `Ngx_Mesh::FindElementOfPoint` (length 1 for segments, 2 for
+surface/domain triangles, 4 for volume tets in 3D; also destructures
+positionally as `(cell, lambda)`). Returns `nothing` when no cell contains the
 point.
 
 `hint` is an optional **1-based** cell index to accelerate the search.
@@ -215,17 +220,17 @@ function find_element(m, x::AbstractVector{<:Real};
         length(p) >= 3 || throw(ArgumentError("x must have length ≥ 3 for a 3D mesh"))
         elnr, l1, l2, l3, l4 = Internals.FindElementOfPoint3(nm, p, build_searchtree, hints, Float64(tol))
         elnr < 0 && return nothing
-        return Int(elnr) + 1, Float64[l1, l2, l3, l4]
+        return (cell=Int(elnr) + 1, lambda=Float64[l1, l2, l3, l4])
     elseif d == 2
         length(p) >= 2 || throw(ArgumentError("x must have length ≥ 2 for a 2D mesh"))
         elnr, l1, l2 = Internals.FindElementOfPoint2(nm, p, build_searchtree, hints, Float64(tol))
         elnr < 0 && return nothing
-        return Int(elnr) + 1, Float64[l1, l2]
+        return (cell=Int(elnr) + 1, lambda=Float64[l1, l2])
     elseif d == 1
         length(p) >= 1 || throw(ArgumentError("x must have length ≥ 1"))
         elnr, l1 = Internals.FindElementOfPoint1(nm, p, build_searchtree, hints, Float64(tol))
         elnr < 0 && return nothing
-        return Int(elnr) + 1, Float64[l1]
+        return (cell=Int(elnr) + 1, lambda=Float64[l1])
     else
         throw(ArgumentError("find_element: unsupported mesh dimension $d"))
     end
