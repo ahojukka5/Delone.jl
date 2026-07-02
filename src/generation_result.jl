@@ -137,7 +137,12 @@ function generate_mesh_result(geom, opts::MeshOptions)
     local m
     try
         m = Internals.new_mesh()
-        Internals.SetGeometry(m, geom)
+        # `Internals.SetGeometry` only accepts `NetgenGeometry` (OCC/2D geometry).
+        # `STLGeometry` has no such overload — `hasmethod` skips it rather than
+        # hardcoding a type check, so any future geometry kind without a
+        # `SetGeometry` overload degrades the same way instead of throwing.
+        hasmethod(Internals.SetGeometry, Tuple{typeof(m), typeof(geom)}) &&
+            Internals.SetGeometry(m, geom)
         mp = to_meshing_parameters(opts)
         Internals.GenerateMesh(geom, m, mp)
     catch e
