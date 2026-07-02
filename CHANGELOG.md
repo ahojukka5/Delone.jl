@@ -4,6 +4,13 @@ All notable changes to Delone.jl are documented in this file.
 
 ## [Unreleased]
 
+### Added
+- **`DeloneWriteVTKExt`** (`ext/DeloneWriteVTKExt.jl`, weakdep on `WriteVTK`):
+  `export_vtu`, real binary/compressed VTU export with cell data (`region`,
+  `boundary_region`, `is_boundary`), accepting either a `MeshLevelSnapshot`
+  or a live mesh handle. `export_vtk` (ASCII, dependency-free) is unchanged
+  and remains the always-available fallback.
+
 ### Fixed
 - `export_vtk`'s 2D `include_volume` path wrote 4-node cells (a bogus padded
   4th index) while still labeling them `VTK_TRIANGLE` (which requires

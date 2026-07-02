@@ -5,6 +5,7 @@ quick raster/vector previews.
 
 ```@docs
 export_vtk
+export_vtu
 export_obj
 export_mesh_preview
 export_svg_2d

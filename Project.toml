@@ -15,6 +15,7 @@ Zlib_jll = "83775a58-1f1d-513f-b197-d71354ab007a"
 
 [weakdeps]
 Makie = "ee78f7c6-11fb-53f2-987a-cfe4a2b5a57a"
+WriteVTK = "64499a7a-5c06-52f2-abe2-ccb03c286192"
 
 [sources]
 OodiCore = {path = "/Users/jukka/dev/OodiCore.jl"}
@@ -22,6 +23,7 @@ Monge = {path = "/Users/jukka/dev/Monge.jl"}
 
 [extensions]
 DeloneMakieExt = "Makie"
+DeloneWriteVTKExt = "WriteVTK"
 
 [compat]
 Aqua = "0.8"
@@ -30,6 +32,7 @@ Documenter = "1"
 Makie = "0.24"
 OCCT_jll = "7.9"
 OodiCore = "0.1"
+WriteVTK = "1"
 Zlib_jll = "1"
 # Package extensions (weakdeps/[extensions], e.g. DeloneMakieExt) require Julia
 # >= 1.9's Base.get_extension mechanism; 1.6 predates it.

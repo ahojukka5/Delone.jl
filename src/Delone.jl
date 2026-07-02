@@ -153,7 +153,7 @@ export supported_snapshot_topology, transfer_weight_semantics
 export OodiSnapshotReadiness, oodi_snapshot_readiness
 
 # --- export / preview ---------------------------------------------------------
-export export_vtk, export_obj, export_mesh_preview, export_svg_2d
+export export_vtk, export_vtu, export_obj, export_mesh_preview, export_svg_2d
 export mesh_preview, mesh_previews
 
 # --- tags & regions ---------------------------------------------------------

@@ -73,6 +73,26 @@ function export_vtk(m, path::AbstractString;
 end
 
 """
+    export_vtu(mesh_or_snapshot, path; include_volume=true, include_surface=true) -> String
+
+Write a real binary/compressed VTU file with cell data (`region`,
+`boundary_region`, `is_boundary`) via `WriteVTK.jl` — a heavier, higher-fidelity
+alternative to the dependency-free ASCII [`export_vtk`](@ref). Accepts either a
+`MeshLevelSnapshot` or a live mesh handle.
+
+This function is defined by the `DeloneWriteVTKExt` package extension and only
+becomes usable once `WriteVTK` is loaded (`using WriteVTK`) — this stub exists
+because Julia package extensions can only add *methods* to an existing
+function binding, not introduce a new top-level name from scratch.
+"""
+function export_vtu(args...; kwargs...)
+    throw(ArgumentError(
+        "export_vtu requires WriteVTK to be loaded (`using WriteVTK`) to activate " *
+        "the DeloneWriteVTKExt package extension; use export_vtk for the " *
+        "dependency-free ASCII fallback"))
+end
+
+"""
     export_obj(mesh, path)
 
 Write boundary surface triangles (3D) or domain triangles (2D) as Wavefront OBJ.
