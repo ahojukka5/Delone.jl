@@ -4,6 +4,55 @@ All notable changes to Delone.jl are documented in this file.
 
 ## [Unreleased]
 
+### Added (C++ binding improvements — NetgenCxxWrap_jll)
+Three of the Julian-layer gaps found during Phase 2/4 were genuinely fixable
+by extending the CxxWrap binding layer (not just documenting a limitation);
+two others were investigated and confirmed to need a fix further upstream
+than the binding layer reaches. `NetgenCxxWrap_jll` commits `9e4860e`,
+`b551a88`, `03402fd`.
+
+- **`Element`/`Element2d` construction** (`9e4860e`): these C++ types were
+  registered with no constructor and only a `PNum` *getter*, so
+  `AddVolumeElement`/`AddSurfaceElement`/`SetVolumeElement`/
+  `SetSurfaceElement` were reachable but structurally unusable. Added
+  `Element(anp)`/`Element2d(anp)` constructors and `SetPNum`/`SetIndex`
+  (exploiting `PNum(i)`'s non-const reference return). New Julian API:
+  `add_volume_element!`/`add_surface_element!` (`src/mesh_construction.jl`)
+  — incremental, one-element-at-a-time mesh editing, complementing
+  `mesh_from_arrays`'s whole-mesh-at-once construction.
+  **Safety finding**: `add_surface_element!` with a `region` that has no
+  corresponding face descriptor **segfaults the Netgen backend** rather than
+  throwing — `add_surface_element!` bounds-checks `region` against
+  `GetNFD(mesh)` before calling into C++ specifically to prevent this; see
+  its docstring and the regression test in `test/mesh_construction.jl`.
+- **Real open-element/open-segment counts** (`b551a88`): wrapped
+  `Mesh::GetNOpenElements`/`OpenElement`/`GetNOpenSegments`/`GetOpenSegment`.
+  `NativeQualityReport`/`MeshQualityReport` gained `open_element_count`/
+  `netgen_open_element_count` (well-verified: `0` on a normal mesh, exactly
+  `4` on a hand-built tet with no surface elements) and the same for
+  segments (exposed, but its exact semantics were **not** pinned down — see
+  the caveat in `NativeQualityReport`'s docstring, it read nonzero on an
+  otherwise fully-consistent mesh). `suggest_mesh_fixes` now surfaces a
+  `:netgen_open_boundary` suggestion when `open_element_count > 0`.
+- **Investigated, confirmed out of `NetgenCxxWrap_jll`'s reach** (`03402fd`):
+  `STLMeshingDummy` (the free function that would let `STLParameters` reach
+  STL meshing) compiles but fails to **link** — the symbol has no
+  `DLL_HEADER` export macro in Netgen's own header, so it isn't exported
+  from the prebuilt `NGSolveNetgen_jll` binary even though its implementing
+  `.cpp` file is compiled into Netgen's own build. Needs an upstream Netgen
+  header fix + an `NGSolveNetgen_jll` rebuild, confirmed via this session's
+  Yggdrasil-registration-status research to already be tracked as future work.
+- **Investigated, root cause is Netgen's own core, not a binding**: `parent_faces`'s
+  uninitialized-memory issue (`docs/src/limitations.md`) traced to
+  `parent_faces` being stored as a raw `std::array<int,4>` (not
+  zero-initialized in C++) in Netgen's own `topology.hpp` — whatever
+  populates it doesn't always fill all 4 slots. `merge_mesh_file!`'s
+  boundary/segment gap: `Mesh::Merge`'s C++ source was read in full and
+  looks correct (it does read and append `surfaceelements`), so the
+  discrepancy is more likely a version skew between the reviewed Netgen
+  source checkout and the actually-linked `NGSolveNetgen_jll` binary than a
+  reproducible bug — not re-confirmed further.
+
 ### Added (roadmap Phase 4 — interop, surgery, lifetime audit)
 - **`mesh_from_arrays`** (`src/mesh_construction.jl`) — the other half of the
   interop story: build a mesh from plain point/tet/surface arrays (e.g. from

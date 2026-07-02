@@ -33,17 +33,24 @@ Several `Ngx_Mesh` hp methods are bound but require **hp internal state**:
 - `GetClusterRep*` crashes on plain h-refined meshes → use `hp_clusters_available` first.
 - Cluster reps and some order queries assume hp refinement or second-order curving has run.
 
-### `parent_faces` — likely uninitialized memory on faces with no parent
+### `parent_faces` — uninitialized memory on faces with no parent (Netgen core bug)
 
 `parent_faces(mesh, fnr)` (`src/fem.jl`, wraps `Internals.GetParentFaces`)
 returns `(info, f1, f2, f3, f4)`. When a face has no parent, fields `f2`–`f4`
 were observed to vary non-deterministically between runs on identical input
-— consistent with reading uninitialized memory on the C++ side rather than a
-documented "no parent" sentinel. Only `info` (the first field, orientation)
-is currently reliable. This looks like a real bug in the underlying
-`GetParentFaces` C++ binding, not a Julia-layer gap — worth investigating
-upstream in `NetgenCxxWrap_jll` before trusting `f2`–`f4` for anything.
-Discovered while writing `docs/src/examples/tags_hp_fem.md`'s doctest.
+— consistent with reading uninitialized memory rather than a documented "no
+parent" sentinel. Only `info` (the first field, orientation) is currently
+reliable. **Root cause confirmed**: Netgen's own `MeshTopology::parent_faces`
+(`libsrc/meshing/topology.hpp`) is declared as
+`Array<std::tuple<int, std::array<int,4>>>` — a raw `std::array<int,4>` is
+not zero-initialized in C++, and whatever populates this array in Netgen's
+own topology code does not always fill all 4 slots. This is a bug in
+**Netgen's own core** (`topology.cpp`'s population logic), not in
+`NetgenCxxWrap_jll`'s wrapper (which faithfully passes through whatever
+`GetParentFaces` returns) — fixing it means patching Netgen's own mesh
+topology code and rebuilding `NGSolveNetgen_jll`, out of reach from the
+CxxWrap binding layer alone. Discovered while writing
+`docs/src/examples/tags_hp_fem.md`'s doctest.
 
 ### `merge_mesh_file!` — boundary/segment data does not appear to merge
 
@@ -108,17 +115,27 @@ aren't rediscovered from scratch:
   works around this via post-generation mark-and-bisect refinement instead
   (`refine_near!`) — see [Local mesh sizing](@ref) for the full writeup,
   including a 2D-vs-3D effectiveness difference.
-- **`FindOpenElements`/`FindOpenSegments` cannot report a count.** They run
-  without error but only populate internal C++ arrays not exposed through
-  `Internals`, with a suppressed verbosity-5 `PrintMessage` as the only
-  observable side effect. A real watertightness check needs new C++ bindings
-  (`GetNOpenElements`, `GetNOpenSegments`, ideally per-facet accessors).
-- **`STLParameters` cannot be threaded into STL meshing.** The wrapped
+- ~~**`FindOpenElements`/`FindOpenSegments` cannot report a count.**~~
+  **Fixed** (`NetgenCxxWrap_jll` commit `b551a88`): `GetNOpenElements`/
+  `OpenElement`/`GetNOpenSegments`/`GetOpenSegment` are now wrapped.
+  `native_quality`/`quality` expose `open_element_count`/
+  `netgen_open_element_count`, well-verified as a real watertightness
+  signal. `open_segment_count` is also exposed but its exact semantics were
+  **not** pinned down (read nonzero on an otherwise fully-consistent mesh) —
+  see `NativeQualityReport`'s docstring.
+- **`STLParameters` still cannot be threaded into STL meshing** — confirmed
+  at a deeper level than originally found. The wrapped
   `STLGeometry::GenerateMesh` override copies a global C++ singleton
   (`extern STLParameters stlparam`) rather than accepting a caller-supplied
-  object; the lower-level free function that upstream Netgen's own Python
-  bindings use instead (`STLMeshingDummy`) isn't exposed by
-  `NetgenCxxWrap_jll`. No Julian `STLOptions` API exists until that's wrapped.
+  object. The lower-level free function upstream Netgen's own Python
+  bindings use instead (`STLMeshingDummy`) was attempted here and **compiles
+  but fails to link**: it has no `DLL_HEADER` export macro in Netgen's own
+  header (unlike virtually everything else in this codebase), so it isn't
+  exported from the prebuilt `NGSolveNetgen_jll` shared library even though
+  its implementation is compiled into Netgen's own build. This needs an
+  upstream Netgen header fix (`DLL_HEADER` on `STLMeshingDummy`'s
+  declaration) plus an `NGSolveNetgen_jll` rebuild — genuinely out of reach
+  from `NetgenCxxWrap_jll` alone. No Julian `STLOptions` API exists.
 - ~~**`generate_mesh`/`generate_mesh_result` was broken for STL geometry**~~
   **Fixed.** `Internals.SetGeometry` has no overload accepting `STLGeometry`
   (only `NetgenGeometry`), so it used to throw `MethodError` before meshing
