@@ -78,6 +78,7 @@ export MeshGenerationResult, MeshGenerationDiagnostics, mesh
 export save_mesh, load_mesh
 export update_topology!, compress!
 export mesh_from_arrays
+export add_volume_element!, add_surface_element!
 
 # --- mesh introspection -----------------------------------------------------
 export num_nodes, num_cells, num_boundary_facets, mesh_dimension, connectivity

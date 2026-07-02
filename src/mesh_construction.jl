@@ -4,16 +4,19 @@
 # no way to hand Delone a mesh built by an external tool (Gmsh, Triangle, a
 # solver's own remesher) as plain arrays. `mesh_from_arrays` closes that gap.
 #
-# Why not just build `Internals.Element`/`Internals.Element2d` and call
-# `Internals.AddVolumeElement`/`Internals.AddSurfaceElement` directly? Because
-# `NetgenCxxWrap_jll` registers those C++ types (`mod.add_type<Element>(...)`)
-# but never registers a constructor for them (no `.constructor<...>()` call in
-# netgen_mesh.cpp), and only wraps a `PNum` *getter* (no setter) — there is
-# structurally no way to build the `Element`/`Element2d` value that
-# `AddVolumeElement`/`AddSurfaceElement`/`SetVolumeElement`/`SetSurfaceElement`
-# require, even though those four methods are themselves reachable from Julia.
-# Confirmed empirically: `methods(Internals.Element)` has no constructor
-# method, only the type registration.
+# Historical note: `mesh_from_arrays` was originally built via a `.vol` file
+# round-trip (see below) because at the time `Internals.Element`/`Element2d`
+# had no registered constructor and no `PNum` setter — `AddVolumeElement`/
+# `AddSurfaceElement`/`SetVolumeElement`/`SetSurfaceElement` were reachable
+# but structurally unusable. `NetgenCxxWrap_jll` commit `9e4860e` fixed this
+# (`Element(anp)`/`Element2d(anp)` constructors + `SetPNum`/`SetIndex`), so
+# direct per-element construction is now also possible — see
+# `add_volume_element!`/`add_surface_element!` below for the incremental,
+# one-element-at-a-time counterpart to this file's whole-mesh
+# `mesh_from_arrays`. The `.vol` round-trip approach is kept for
+# `mesh_from_arrays` itself (it's verified, fast, and simpler for building an
+# entire mesh from arrays at once) rather than rewritten to loop over the new
+# per-element calls.
 #
 # `Mesh::Save`/`Mesh::Load`, by contrast, are wrapped taking plain file paths
 # (see `save_mesh`/`load_mesh` in mesh.jl) and round-trip through Netgen's
@@ -302,4 +305,90 @@ function _write_vol_file(path::AbstractString, points::AbstractMatrix, tets::Abs
         println(io, "endmesh")
     end
     return nothing
+end
+
+# --- incremental, one-element-at-a-time construction -------------------------
+# The counterpart to mesh_from_arrays above: add a single volume/surface
+# element to an *existing* mesh, for incremental editing (as opposed to
+# building a whole mesh from arrays at once). See the module note near the
+# top of this file for why this was previously unreachable.
+
+"""
+    add_volume_element!(mesh, point_ids; region=1) -> mesh
+
+Add one tetrahedron to `mesh` (`Internals.Element` + `Internals.AddVolumeElement`).
+`point_ids` is a length-4 vector/tuple of 1-based node indices into `mesh`
+(matching [`tetrahedra`](@ref)'s convention); `region` is the 1-based
+domain/material index the new element belongs to (matching
+[`cell_regions`](@ref)).
+
+Throws `ArgumentError` if `point_ids` does not have exactly 4 entries, if any
+entry is not a valid 1-based index into `mesh`'s existing points, or if
+`region < 1`.
+"""
+function add_volume_element!(m, point_ids; region::Integer=1)
+    length(point_ids) == 4 || throw(ArgumentError(
+        "add_volume_element!: point_ids must have exactly 4 entries (got $(length(point_ids)))"))
+    region >= 1 || throw(ArgumentError("add_volume_element!: region must be >= 1 (got $region)"))
+    np = Internals.GetNP(m)
+    for pid in point_ids
+        1 <= pid <= np || throw(ArgumentError(
+            "add_volume_element!: point id $pid out of range 1:$np"))
+    end
+    el = Internals.Element(4)
+    for (i, pid) in enumerate(point_ids)
+        Internals.SetPNum(el, i, Int(pid))
+    end
+    Internals.SetIndex(el, Int(region))
+    Internals.AddVolumeElement(m, el)
+    return m
+end
+
+"""
+    add_surface_element!(mesh, point_ids; region=1) -> mesh
+
+Add one boundary triangle to `mesh` (`Internals.Element2d` +
+`Internals.AddSurfaceElement`). `point_ids` is a length-3 vector/tuple of
+1-based node indices into `mesh` (matching [`surface_triangles`](@ref)'s
+convention); `region` is the 1-based face-descriptor index the new element
+belongs to (matching [`boundary_regions`](@ref)) — it must already exist
+(e.g. from a prior `generate_mesh`/`mesh_from_arrays` call); this function
+does not allocate new face descriptors.
+
+Throws `ArgumentError` if `point_ids` does not have exactly 3 entries, if any
+entry is not a valid 1-based index into `mesh`'s existing points, or if
+`region` is not a valid 1-based index into `mesh`'s existing face
+descriptors (`1:GetNFD(mesh)`).
+
+!!! warning "Do not skip the `region` check"
+    Unlike an out-of-range point id, calling `Internals.AddSurfaceElement`
+    with a face-descriptor index that doesn't exist **segfaults the whole
+    Julia process** rather than throwing a catchable exception (confirmed
+    empirically — Netgen's own `has no facedecoding` internal check runs
+    after the point in the C++ call where it's safe to recover). This
+    function bounds-checks `region` against `GetNFD(mesh)` up front
+    specifically to prevent that crash; do not remove this check when
+    editing this function.
+"""
+function add_surface_element!(m, point_ids; region::Integer=1)
+    length(point_ids) == 3 || throw(ArgumentError(
+        "add_surface_element!: point_ids must have exactly 3 entries (got $(length(point_ids)))"))
+    nfd = Internals.GetNFD(m)
+    1 <= region <= nfd || throw(ArgumentError(
+        "add_surface_element!: region $region is not a valid face-descriptor index " *
+        "(mesh has $nfd; add_surface_element! does not allocate new ones — " *
+        "passing an invalid index would segfault the Netgen backend rather " *
+        "than throw, so this is checked explicitly)"))
+    np = Internals.GetNP(m)
+    for pid in point_ids
+        1 <= pid <= np || throw(ArgumentError(
+            "add_surface_element!: point id $pid out of range 1:$np"))
+    end
+    el = Internals.Element2d(3)
+    for (i, pid) in enumerate(point_ids)
+        Internals.SetPNum(el, i, Int(pid))
+    end
+    Internals.SetIndex(el, Int(region))
+    Internals.AddSurfaceElement(m, el)
+    return m
 end

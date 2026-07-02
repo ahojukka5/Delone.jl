@@ -19,4 +19,7 @@ save_mesh
 load_mesh
 update_topology!
 compress!
+mesh_from_arrays
+add_volume_element!
+add_surface_element!
 ```

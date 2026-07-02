@@ -113,3 +113,60 @@ end
         @test material_names(m3) == matnames
     end
 end
+
+@testset "add_volume_element! on a bare mesh (no pre-existing face descriptors needed)" begin
+    m = I.new_mesh()
+    p1 = I.AddPoint(m, I.Point3d(0.0, 0.0, 0.0))
+    p2 = I.AddPoint(m, I.Point3d(1.0, 0.0, 0.0))
+    p3 = I.AddPoint(m, I.Point3d(0.0, 1.0, 0.0))
+    p4 = I.AddPoint(m, I.Point3d(0.0, 0.0, 1.0))
+    @test num_nodes(m) == 4
+    @test num_cells(m) == 0
+
+    add_volume_element!(m, (p1, p2, p3, p4); region=1)
+    @test num_cells(m) == 1
+    @test sort(tetrahedra(m)[:, 1]) == [p1, p2, p3, p4]
+    @test cell_regions(m)[1] == 1
+
+    # error paths: wrong arity, out-of-range point id, region < 1
+    @test_throws ArgumentError add_volume_element!(m, (p1, p2, p3); region=1)
+    @test_throws ArgumentError add_volume_element!(m, (p1, p2, p3, 999); region=1)
+    @test_throws ArgumentError add_volume_element!(m, (p1, p2, p3, p4); region=0)
+
+    # returns the mesh, per the `!`-function convention
+    @test add_volume_element!(m, (p1, p2, p3, p4); region=1) === m
+end
+
+@testset "add_surface_element! requires a pre-existing face descriptor" begin
+    # A mesh with zero face descriptors: region=1 must be rejected with a
+    # clean ArgumentError, NOT passed through to Internals.AddSurfaceElement
+    # (which segfaults on an unknown face-descriptor index -- see the
+    # docstring's warning; this is the regression test for that).
+    bare = I.new_mesh()
+    p1 = I.AddPoint(bare, I.Point3d(0.0, 0.0, 0.0))
+    p2 = I.AddPoint(bare, I.Point3d(1.0, 0.0, 0.0))
+    p3 = I.AddPoint(bare, I.Point3d(0.0, 1.0, 0.0))
+    @test I.GetNFD(bare) == 0
+    @test_throws ArgumentError add_surface_element!(bare, (p1, p2, p3); region=1)
+
+    # A mesh built via mesh_from_arrays already has real face descriptors --
+    # add_surface_element! onto an existing, valid region works normally.
+    P = [0.0 1.0 0.0 0.0; 0.0 0.0 1.0 0.0; 0.0 0.0 0.0 1.0]
+    T = reshape([1, 2, 3, 4], 4, 1)
+    S = reshape([1, 2, 3], 3, 1)
+    m = mesh_from_arrays(P, T; surface=S, cell_regions=[1], boundary_regions=[1])
+    @test I.GetNFD(m) >= 1
+    nse_before = num_boundary_facets(m)
+
+    add_surface_element!(m, (1, 3, 4); region=1)
+    @test num_boundary_facets(m) == nse_before + 1
+    @test sort(surface_triangles(m)[:, end]) == [1, 3, 4]
+
+    @test_throws ArgumentError add_surface_element!(m, (1, 2); region=1)
+    @test_throws ArgumentError add_surface_element!(m, (1, 2, 999); region=1)
+    @test_throws ArgumentError add_surface_element!(m, (1, 2, 3); region=0)
+    @test_throws ArgumentError add_surface_element!(m, (1, 2, 3); region=I.GetNFD(m) + 1)
+
+    # returns the mesh, per the `!`-function convention
+    @test add_surface_element!(m, (1, 3, 4); region=1) === m
+end
