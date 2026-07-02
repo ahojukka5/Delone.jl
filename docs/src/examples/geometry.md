@@ -146,6 +146,33 @@ import); region/boundary names and 2D meshing are not yet wired up. See
 [`generate_gmsh_mesh`](@ref)'s docstring for the full contract, including
 why it throws `ArgumentError` rather than a raw Gmsh error on bad input.
 
+`generate_mesh` itself accepts `backend=:gmsh` as a shorter, familiar-verb
+alternative to calling `generate_gmsh_mesh` directly — equivalent, but
+only `maxh` is honored, and `options=`/`result=true` throw rather than
+being silently ignored (Netgen-specific structured diagnostics have no
+Gmsh equivalent yet):
+
+<!-- not converted to @example: same reason as above. -->
+```julia
+s = generate_mesh("model.step"; maxh=0.5, backend=:gmsh)
+```
+
+For an in-memory shape built with OpenCascade.jl (rather than a file on
+disk), [`gmsh_mesh_from_brep_string`](@ref) mirrors
+[`occ_geometry_from_brep_string`](@ref)'s bridge for Netgen — Gmsh's own
+API has no in-memory-string import, so this writes the BREP string to a
+temporary file internally (the same safety profile as the Netgen path;
+Gmsh's `importShapesNativePointer` would avoid that temp file but is
+documented upstream as unsafe/undefined-behavior-on-a-bad-pointer, and
+relies on Monge's and Gmsh's independently-built OCCT libraries staying
+ABI-identical — not a risk worth taking here):
+
+```julia
+using OpenCascade, Delone, Gmsh
+
+s = gmsh_mesh_from_brep_string(to_brep_string(box(1, 1, 1)); maxh=0.3)
+```
+
 ## Choosing a workflow
 
 | Goal | Suggested path |

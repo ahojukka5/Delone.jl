@@ -33,4 +33,10 @@ Optional — active once the registered `Gmsh` package is loaded (see
 
 ```@docs
 generate_gmsh_mesh
+gmsh_mesh_from_brep_string
 ```
+
+`generate_mesh` itself also accepts `backend=:gmsh` as a convenience
+selector — see its docstring above for the exact contract (only `maxh` is
+honored; `options=`/`result=true` throw rather than being silently
+ignored).
