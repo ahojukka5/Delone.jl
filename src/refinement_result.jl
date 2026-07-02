@@ -37,6 +37,9 @@ function Base.show(io::IO, ::MIME"text/html", r::RefinementResult)
           "<tr><th>transfer_available</th><td>", r.transfer_available, "</td></tr></table>")
 end
 
+_refinement_error_message(res::RefinementResult) =
+    "refinement failed: " * join((d.message for d in res.diagnostics), "; ")
+
 function _refinement_result!(h, old_levels, old_ne, old_np; transfer_available=true)
     new_levels = nlevels(h)
     m_new = finest(h)
@@ -76,7 +79,7 @@ function refine!(h::MeshHierarchy; mode::Symbol=:uniform,
         throw(ArgumentError("unsupported refinement mode: $mode"))
     end
     res = _refinement_result!(h, old_levels, old_ne, old_np)
-    return result ? res : (res.success ? h : throw(ArgumentError(string(res))))
+    return result ? res : (res.success ? h : throw(ArgumentError(_refinement_error_message(res))))
 end
 
 """
@@ -100,5 +103,5 @@ function refine_session!(s::MeshHierarchySession; mode::Symbol=:uniform,
         throw(ArgumentError("unsupported refinement mode: $mode"))
     end
     res = _refinement_result!(s, old_levels, old_ne, old_np)
-    return result ? res : (res.success ? s : throw(ArgumentError(string(res))))
+    return result ? res : (res.success ? s : throw(ArgumentError(_refinement_error_message(res))))
 end
