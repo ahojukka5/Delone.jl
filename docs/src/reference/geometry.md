@@ -16,3 +16,17 @@ Rectangle
 CSG2d
 occ_geometry_from_brep_string
 ```
+
+## Periodic boundary conditions
+
+Pre-mesh OCC face identification for periodic boundary conditions
+(computational homogenization / RVE unit cells) — see
+[Building geometry](@ref "Building geometry") for a worked example.
+
+```@docs
+occ_nr_faces
+occ_face_bbox
+faces_on_plane
+identify_periodic!
+identify_periodic_box!
+```

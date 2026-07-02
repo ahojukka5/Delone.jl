@@ -82,6 +82,40 @@ write_brep(body, "part.brep")
 geom = load_brep("part.brep")
 ```
 
+## Periodic boundary conditions (RVE / microstructure unit cells)
+
+For computational homogenization (RVE) modeling, opposite faces of a unit
+cell need matching mesh nodes so a downstream solver can tie DOFs across the
+periodic boundary. [`identify_periodic_box!`](@ref) sets this up for the
+common axis-aligned box/hex case: it finds the min- and max-face along an
+axis and registers a pre-mesh periodic identification between them, so
+Netgen builds the second face's mesh as an exact copy of the first (no
+interpolation error).
+
+<!-- not converted to @example: depends on OpenCascade.jl (see above), which
+     is not available in the docs build environment. -->
+```julia
+using OpenCascade, Delone
+
+geom = occ_geometry_from_brep_string(to_brep_string(box(1, 1, 1)))
+geom = identify_periodic_box!(geom, :x; name="periodic_x")
+geom = identify_periodic_box!(geom, :y; name="periodic_y")
+geom = identify_periodic_box!(geom, :z; name="periodic_z")
+mesh = generate_mesh(geom; maxh=0.3)
+
+# verify: node pairs on opposite x-faces differ by exactly (1,0,0)
+pairs = periodic_vertex_pairs(mesh, 1)
+```
+
+Periodic identification must be set up **before** `generate_mesh` — see
+[`identify_periodic!`](@ref)'s docstring for the general (non-box) entry
+point, and the note there on why the function returns a **new** geometry
+handle that you must use in place of the one you passed in. For a
+microstructure unit cell (e.g. a box with inclusions/pores boolean-subtracted
+from it), use [`faces_on_plane`](@ref) to inspect face indices directly if
+[`identify_periodic_box!`](@ref) can't find a single unambiguous face per
+side (a boolean cut can split one outer face into several fragments).
+
 ## Choosing a workflow
 
 | Goal | Suggested path |

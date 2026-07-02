@@ -15,6 +15,7 @@ method lists see `docs/API_COVERAGE.md` in the package tree.
 | 2D CSG | `Circle`, `Rectangle`, `CSG2d`, `geometry2d`, boolean `+` / `*` / `-` |
 | OCC programmatic 3D | OpenCascade.jl → `occ_geometry_from_brep_string(to_brep_string(shape))` |
 | OCC I/O (modeling) | OpenCascade.jl: `BRepTools_*`, `STEPControl_*`, `IGESControl_*` |
+| Periodic boundary conditions (RVE) | `identify_periodic_box!`, `identify_periodic!`, `faces_on_plane`, `occ_face_bbox` → `netgen::Identify` |
 
 ## Mesh generation & core `Mesh` API
 
