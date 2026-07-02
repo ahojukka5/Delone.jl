@@ -401,7 +401,7 @@ polish not yet scheduled).
 - [x] One blessed name per concept (no `try_`/alias ambiguity) — for the 3
       pairs originally flagged. `num_levels`/`nlevels` was deliberately left
       as-is (cross-referencing docstrings judged sufficient over a rename).
-- [x] LICENSE, CHANGELOG — [ ] **CI badges in README are not added.**
+- [x] LICENSE, CHANGELOG, CI badges in README — all present.
 - [ ] **Registration blocked only by upstream JLL availability, nothing
       local** — not yet true: `Delone.jl`/`Monge.jl` still use local-path
       `[sources]` and a locally-built `libnetgen_cxxwrap` artifact. This is
@@ -419,13 +419,22 @@ polish not yet scheduled).
   something to revisit locally until that lands.
 - A7 Periodic identifications (`Identifications` class) — deliberately
   deferred per the original plan; still open, no consumer need yet.
-- B2 Return-type polish (Int32→Int decision, tuple→NamedTuple conversions
-  for `mesh_bounding_box`/`connectivity`/`element_orders_xyz`) — not started.
-- B5 `DeloneWriteVTKExt`/`DeloneGeometryBasicsExt`/Tables.jl views — deferred;
-  only `DeloneMakieExt` shipped.
-- D3 test additions — export-format tests are still smoke-only (file exists +
-  a keyword string check, not real content/cell-count parsing); no systematic
-  `ArgumentError`-branch sweep; `mesh_from_arrays`'s round-trip test verified
-  raw extraction-function output, not literally `level_snapshot`/
-  `hierarchy_snapshot` objects (equivalent in practice, not identical to the
-  original wording).
+- **Category 3 (2026-07-02): done.** `c285e9c`, `246c4ee`, `1c9cf1d`,
+  `76909c7`, `6715bf1`, `c3f24a5`; 719 → 800 passing tests.
+  - B2 Return-type polish — **done.** Int32 kept (documented as a permanent
+    decision in `AGENTS.md`); `mesh_bounding_box`/`connectivity`/
+    `element_orders_xyz` now return `NamedTuple`s.
+  - B5 `DeloneWriteVTKExt`/`DeloneGeometryBasicsExt` — **done**, both
+    shipped as weakdep extensions alongside `DeloneMakieExt`. A real
+    `GeometryBasics.connect` bug (silent integer byte-reinterpret) was
+    found and worked around. Tables.jl views remain deferred, no consumer
+    need yet.
+  - D3 test additions — **mostly done.** Export-format tests now parse
+    real file content (point/cell counts), `export_obj` gained coverage
+    (previously zero), and `ArgumentError`-branch coverage was added
+    across `fem.jl`/`hp_apply.jl`/`llm_feedback.jl`/`mesh_surgery.jl`.
+    Still not exhaustive: `generation_result.jl`/`snapshots.jl`/`tags.jl`
+    remain thinner; no `show`-method golden tests yet.
+  - Along the way, a real `export_vtk` bug was found and fixed: 2D
+    triangles were padded to 4 nodes while still labeled `VTK_TRIANGLE`
+    (requires exactly 3) — would corrupt output for real VTK readers.
