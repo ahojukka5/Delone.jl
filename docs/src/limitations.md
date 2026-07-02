@@ -112,9 +112,10 @@ aren't rediscovered from scratch:
   `generate_mesh`.** They update a mesh's local-h field immediately (visible
   to `mesh_h_at`), but `GenerateMesh` recomputes its own local-h field during
   surface meshing and discards any pre-set restriction. `MeshOptions.local_size`
-  works around this via post-generation mark-and-bisect refinement instead
+  works around this via post-generation mark-and-refine refinement instead
   (`refine_near!`) — see [Local mesh sizing](@ref) for the full writeup,
-  including a 2D-vs-3D effectiveness difference.
+  including a 2D-vs-3D mechanism difference (2D and 3D are equally effective;
+  only the underlying Netgen refinement call differs).
 - ~~**`FindOpenElements`/`FindOpenSegments` cannot report a count.**~~
   **Fixed** (`NetgenCxxWrap_jll` commit `b551a88`): `GetNOpenElements`/
   `OpenElement`/`GetNOpenSegments`/`GetOpenSegment` are now wrapped.

@@ -1,7 +1,7 @@
 # Building geometry
 
 Delone.jl accepts geometry from files, 2D constructive solid geometry (CSG), or
-shapes built in [OpenCascade.jl](https://github.com/) and passed via BREP strings.
+shapes built in [OpenCascade.jl](https://github.com/ahojukka5/Monge.jl) and passed via BREP strings.
 
 ## Import CAD files
 
