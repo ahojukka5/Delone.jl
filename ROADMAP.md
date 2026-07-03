@@ -80,7 +80,11 @@ biggest interop unlock and also enables round-trip testing of snapshots.
 m = mesh_from_arrays(X, tets; surface=tris, cell_regions=..., material_names=...)
 ```
 
-### A3. Boundary/region naming *before* meshing
+### A3. Boundary/region naming *before* meshing — **done**
+
+**Status (2026-07-03): implemented** (`src/tags.jl`). `set_boundary_name!`,
+`set_material_name!`, and a bulk `rename_boundaries!(mesh, Dict(...))` all
+exist and are surfaced in `MeshTagReport`.
 
 `FaceDescriptor`/`EdgeDescriptor` setters (`SetBCName`, `SetName`,
 `SetBCProperty`, `SetDomainIn/Out`) are wrapped but unreachable. Users of loaded
@@ -89,7 +93,15 @@ Proposed: `set_boundary_name!(mesh, fd_index, name)`, `set_material_name!`,
 plus a `rename_boundaries!(mesh, Dict(...))` bulk helper, and surface them in
 `MeshTagReport`.
 
-### A4. Native quality metrics & topology diagnostics
+### A4. Native quality metrics & topology diagnostics — **mostly done**
+
+**Status (2026-07-03): the diagnostics half is implemented** (`src/quality.jl`):
+`MeshQualityReport`'s `netgen_*` fields wire `CalcTotalBad`/`ElementError`/
+`CheckVolumeMesh`/`CheckOverlappingBoundary`/`FindOpenElements`/
+`FindOpenSegments` straight into `quality()`. **Still open**: `MarkIllegalElements`/
+`RemoveIllegalElements` are not wrapped at any Julia level yet, so there is no
+`mesh_repair!(mesh)` — a diagnostics *read* is available, a repair *action* is
+not.
 
 `CalcMinMaxAngle`, `CalcTotalBad`, `ElementError`, `FindOpenElements`,
 `FindOpenSegments`, `CheckOverlappingBoundary`, `MarkIllegalElements`,
@@ -107,7 +119,13 @@ Add an `STLOptions` struct mirroring `MeshOptions` and accept it in
 `load_stl(path; options=...)`. Also end-to-end STL→volume test at the Julian
 layer (named as a gap in the 2026-07-01 audit, still open).
 
-### A6. Mesh surgery & spatial search (secondary)
+### A6. Mesh surgery & spatial search (secondary) — **done**
+
+**Status (2026-07-03): implemented** — `src/mesh_surgery.jl` has
+`split_to_tets!`, `split_into_parts!`, `merge_mesh_file!`, `get_sub_mesh`,
+`pure_tet_mesh`/`pure_trig_mesh`, `surface_mesh_orientation!`; `src/spatial_search.jl`
+has the `NodeTree` wrapper (`node_tree`/`build_node_tree`/`nodes_near`) over
+`Point3dTree`.
 
 - `merge!(mesh_a, mesh_b)` (`Merge`), `split_into_parts(mesh)`
   (`SplitIntoParts`/`GetSubMesh`), `split2tets!`.
@@ -119,11 +137,11 @@ layer (named as a gap in the 2026-07-01 audit, still open).
 
 ### A7. Periodic identifications — **done for the axis-aligned box/hex case**
 
-**Status (2026-07-02): implemented.** A real consumer need materialized
-(microstructural/RVE homogenization modeling), so this was un-deferred.
-New `NetgenCxxWrap_jll` bindings (`OCC_NrFaces`/`OCC_FaceBoundingBox`/
-`OCC_IdentifyFaces`/`OCC_RebuildGeometry`, calling Netgen's OCC-level
-`netgen::Identify`) plus new Delone.jl functions
+**Status (2026-07-03): implemented, including multi-fragment faces.** A real
+consumer need materialized (microstructural/RVE homogenization modeling), so
+this was un-deferred. New `NetgenCxxWrap_jll` bindings (`OCC_NrFaces`/
+`OCC_FaceBoundingBox`/`OCC_IdentifyFacesBulk`/`OCC_RebuildGeometry`, calling
+Netgen's OCC-level `netgen::Identify`) plus new Delone.jl functions
 `identify_periodic!`/`identify_periodic_box!` (`src/periodic.jl`) set up
 pre-mesh periodic identification between OCC faces, so `generate_mesh`
 produces exact node correspondence across the periodic boundary (Netgen
@@ -146,17 +164,40 @@ do this automatically and return the new handle.
 Scoped to axis-aligned box/hex unit cells (bounding-box-plane face
 selection) rather than arbitrary curved-face pairing, which would need full
 `TopoDS_Shape` navigation exposed to Julia — a larger, separate follow-up if
-a consumer needs it. Also not yet handled: a boolean-cut microstructure
-fragmenting one periodic face into multiple pieces touching the same plane
-(`identify_periodic_box!` throws `ArgumentError` on that ambiguity rather
-than guessing; `identify_periodic!` with explicit face indices is the
-fallback).
+a consumer needs it.
+
+**2026-07-03 follow-up: multi-fragment periodic faces.** A boolean-cut
+microstructure (an inclusion/pore touching the periodic boundary) commonly
+fragments one outer face into several `TopoDS_Face` pieces; previously
+`identify_periodic_box!` threw `ArgumentError` the moment more than one face
+was found at an extreme. Re-reading `netgen::Identify` showed it already
+does N×M fragment-to-fragment matching internally when given multi-element
+`ListOfShapes`, so the fix was additive: `OCC_IdentifyFaces` became
+`OCC_IdentifyFacesBulk` (accepts face-index vectors, not just scalars), and
+`identify_periodic!`/`identify_periodic_box!` now accept `Vector{<:Integer}`
+for `facenr_me`/`facenr_you` and pass every fragment found at an extreme
+through in one call, checking the returned match count against
+`min(length(facenr_me), length(facenr_you))` rather than just `> 0` (a
+partial match is a silent per-fragment data-loss risk, not something to
+warn about and continue past). No hand-rolled geometric fragment-matching
+needed in Julia. Verified with a real fragmented-box fixture
+(`test/periodic.jl`): both fragments get exact node correspondence, and a
+deliberately-mismatched fragment pairing correctly throws.
 
 ---
 
 ## Workstream B — API ergonomics & consistency
 
-### B1. Consolidate redundant names (do this **before** registration — it's a breaking-change window)
+### B1. Consolidate redundant names (do this **before** registration — it's a breaking-change window) — **done**
+
+**Status (2026-07-03): resolved for every row below** — `generate_mesh_result`
+is the blessed non-throwing name (`try_generate_mesh` deprecated to it),
+`mesh_hierarchy` is the front door (`coarse_hierarchy` deprecated to it),
+`quality` is kept (`mesh_quality` deprecated to it), `secondorder` warns and
+points at `second_order`. `num_levels`/`nlevels` were **not** renamed —
+resolved via the table's other option, cross-referencing docstrings
+(`src/hierarchy.jl`, `src/session.jl`) that explicitly distinguish the raw
+ngx multigrid count from the hierarchy's own level count.
 
 | Today | Proposal |
 |---|---|
@@ -179,7 +220,13 @@ fallback).
   the high-level API but document it; consider `refine_with_result!` if type
   stability ever matters to a consumer.
 
-### B3. Lifetimes, GC, and thread-safety documentation
+### B3. Lifetimes, GC, and thread-safety documentation — **done**
+
+**Status (2026-07-03): implemented** — `docs/src/handles_gc.md` (267 lines)
+covers reachability/GC guarantees, geometry-outliving-mesh finalizer
+ordering, `MeshHierarchySession`/`MeshHierarchy` handle-dropping, and states
+plainly that thread-safety is undocumented upstream and should be assumed
+unsafe.
 
 Nothing documents what happens when a `MeshHierarchySession` is GC'd while a
 live `level_mesh` handle is held, or whether sessions are thread-safe. Add a
@@ -187,7 +234,13 @@ live `level_mesh` handle is held, or whether sessions are thread-safe. Add a
 / `unsafe_level_mesh`). Audit that CxxWrap finalizer ordering is actually safe
 (geometry outliving meshes that reference it) and add a keep-alive field if not.
 
-### B4. Small Base-interface additions
+### B4. Small Base-interface additions — **done**
+
+**Status (2026-07-03): implemented** — `MeshHierarchySnapshot` has
+`Base.length`/`getindex`/`iterate` (`src/snapshots.jl`); every report type
+has a `Base.summary` and a `Base.show(::MIME"text/html", ...)` method
+(`mesh_report.jl`, `quality.jl`, `hierarchy_report.jl`, `generation_result.jl`,
+`meshability.jl`, `validation.jl`, `tag_report.jl`).
 
 - `Base.getindex`/`length`/`iterate` for `MeshHierarchySnapshot` (levels), as
   already done for `MeshHierarchy`/session.
@@ -195,7 +248,13 @@ live `level_mesh` handle is held, or whether sessions are thread-safe. Add a
 - `show(::MIME"text/html", report)` (or markdown) for Pluto/Jupyter — cheap and
   visible payoff for the "reports should shine" goal.
 
-### B5. Ecosystem integration via package extensions (weakdeps)
+### B5. Ecosystem integration via package extensions (weakdeps) — **done**
+
+**Status (2026-07-03): implemented**, plus one beyond the original scope —
+`ext/DeloneMakieExt.jl`, `ext/DeloneWriteVTKExt.jl`,
+`ext/DeloneGeometryBasicsExt.jl` all exist, and `ext/DeloneGmshExt.jl` (a
+second meshing backend, not originally scoped here — see the Netgen/Gmsh
+multi-backend work) was added alongside them.
 
 Keep the core lean; add Julia ≥1.9 extensions:
 
