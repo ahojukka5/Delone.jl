@@ -34,6 +34,9 @@ Optional — active once the registered `Gmsh` package is loaded (see
 ```@docs
 generate_gmsh_mesh
 gmsh_mesh_from_brep_string
+gmsh_geometry_info
+GmshPeriodicGroup
+GmshMeshGenerationResult
 ```
 
 `generate_mesh` itself also accepts `backend=:gmsh` as a convenience

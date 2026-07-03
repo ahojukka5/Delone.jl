@@ -600,6 +600,49 @@ unified** — Netgen's `Circle`/`Rectangle`/`CSG2d` has no Gmsh equivalent,
 and reimplementing that boolean lowering against Gmsh's own OCC kernel
 would be speculative (all real usage here is 3D).
 
+**Follow-up (2026-07-03): Gmsh backend RVE parity.** A source-verified
+survey (not ROADMAP-prose-trusted) found the Gmsh backend was a thin "CAD
+file → uniform-size tet mesh" bridge with no periodic BCs, no local sizing
+beyond one global `maxh`, and no region/boundary tagging — despite
+`MeshLevelSnapshot` already having `cell_regions`/`boundary_regions`/
+`material_names`/`boundary_names` fields sitting permanently empty for
+Gmsh output. Closed all three gaps with a **declarative, single-call**
+design (everything inside one `Gmsh.initialize()`...`finalize()` bracket,
+new features as keyword arguments) after seriously evaluating and
+rejecting a Netgen-style staged/session-handle alternative: Gmsh's C
+library gives multi-model *naming* but not multi-model *option isolation*
+(most `Mesh.*`/`General.*` options are process-global), and there is no
+safe finalizer story for a dropped handle (no C++ RAII the way CxxWrap
+gives Netgen).
+
+Added: `gmsh_geometry_info`/`faces_on_plane` for entity discovery;
+`regions=`/`boundary_names=` (Gmsh physical groups) for material/boundary
+tagging; `refine_near=` (Distance+Threshold+Min fields) for local sizing;
+`periodic=`/`periodic_box=` (`setPeriodic`) + `GmshPeriodicGroup`/
+`GmshMeshGenerationResult` for periodic BCs; `generate_mesh(...;
+backend=:gmsh)` now forwards all these keywords, not just `maxh`.
+
+Two real bugs found and fixed during development (both would have shipped
+silently without the empirical verification discipline this session
+consistently applies): (1) a `refine_near` `point=` entry injected a
+free-standing OCC point that Gmsh meshes as an unreferenced 0-D node — a
+general node-compaction step now filters any unreferenced node out of the
+returned snapshot; (2) the first periodic implementation returned
+`vertex_pairs` in `(slave_idx, master_idx)` order, backwards from
+`periodic_vertex_pairs`'s `(lo_idx, hi_idx)` convention — caught only by
+checking exact coordinate deltas against the declared translation, not
+just "didn't throw."
+
+One deliberate capability gap versus the Netgen backend, documented rather
+than silently accepted: `periodic_box` only supports one face per extreme,
+since Gmsh's `setPeriodic` pairs faces by position (no
+`netgen::Identify`-style geometric matching) — a fragmented periodic face
+needs `periodic=` with manually-ordered fragment lists. Hex/quad output via
+Gmsh's recombination was surveyed as a possible future win but not
+pursued in this pass (real risk: Gmsh's recombination doesn't guarantee a
+pure-hex mesh for arbitrary CAD, and `MeshLevelSnapshot`'s fixed-width
+connectivity matrix requires uniform topology).
+
 ---
 
 ## Suggested sequencing

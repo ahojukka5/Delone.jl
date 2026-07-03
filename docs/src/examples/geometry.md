@@ -161,19 +161,60 @@ Gmsh's own API is file-based) and returns a [`MeshLevelSnapshot`](@ref)
 directly, so it composes with everything that already accepts one:
 `export_vtk`/`export_vtu`, `GeometryBasics.Mesh`, Makie plotting. v1 supports
 a pure-tetrahedral 3D volume mesh only (Gmsh's default for a plain CAD
-import); region/boundary names and 2D meshing are not yet wired up. See
-[`generate_gmsh_mesh`](@ref)'s docstring for the full contract, including
-why it throws `ArgumentError` rather than a raw Gmsh error on bad input.
+import); 2D meshing is not yet wired up. See [`generate_gmsh_mesh`](@ref)'s
+docstring for the full contract, including why it throws `ArgumentError`
+rather than a raw Gmsh error on bad input.
 
 `generate_mesh` itself accepts `backend=:gmsh` as a shorter, familiar-verb
-alternative to calling `generate_gmsh_mesh` directly — equivalent, but
-only `maxh` is honored, and `options=`/`result=true` throw rather than
+alternative to calling `generate_gmsh_mesh` directly — equivalent, forwarding
+every keyword except `options=`/`result=true`, which throw rather than
 being silently ignored (Netgen-specific structured diagnostics have no
-Gmsh equivalent yet):
+Gmsh equivalent; use `generate_gmsh_mesh(...; result=true)` directly for
+[`GmshMeshGenerationResult`](@ref)):
 
 <!-- not converted to @example: same reason as above. -->
 ```julia
 s = generate_mesh("model.step"; maxh=0.5, backend=:gmsh)
+```
+
+### RVE workflow on the Gmsh path: regions, local sizing, periodic BCs
+
+For a microstructure unit cell meshed via Gmsh instead of Netgen,
+[`gmsh_geometry_info`](@ref) discovers OCC face/solid tags (the Gmsh-tag
+analogue of [`occ_nr_faces`](@ref)/[`occ_face_bbox`](@ref)), and
+`generate_gmsh_mesh` accepts declarative keywords for the rest — no manual
+Gmsh API calls needed:
+
+```julia
+using Delone, Gmsh
+
+info = gmsh_geometry_info("unit_cell.step")
+inclusion_faces = faces_on_plane(info.faces, :x, 0.5)  # example: an inclusion boundary
+
+s = generate_gmsh_mesh("unit_cell.step"; maxh=0.3,
+    regions=Dict("matrix" => 1, "inclusion" => 2),      # solid tags -> cell_regions/material_names
+    boundary_names=Dict("outer" => [1, 2, 3, 4, 5, 6]), # face tags -> boundary_regions/boundary_names
+    refine_near=[(faces=inclusion_faces, hmin=0.02, hmax=0.3, distmin=0.05, distmax=0.3)],
+    periodic_box=[:x, :y, :z])
+```
+
+`periodic_box`/`periodic` are the Gmsh-backend analogue of
+[`identify_periodic_box!`](@ref)/[`identify_periodic!`](@ref), with one
+real difference worth knowing: Gmsh's `setPeriodic` pairs faces *by
+position*, not by Netgen's `netgen::Identify`-style geometric matching, so
+`periodic_box` only supports one face per extreme (it throws on a
+boolean-cut-fragmented periodic face, unlike the Netgen backend — see
+[`generate_gmsh_mesh`](@ref)'s docstring for the `periodic=` fallback with
+manually-ordered fragment lists). To read back the periodic node
+correspondence (mirroring [`periodic_vertex_pairs`](@ref)), pass
+`result=true`:
+
+```julia
+res = generate_gmsh_mesh("unit_cell.step"; maxh=0.3, periodic_box=:x, result=true)
+g = res.periodic_groups[1]
+X = res.snapshot.coordinates
+# node pairs on opposite x-faces differ by exactly g.translation
+all(X[:, j] .- X[:, i] ≈ collect(g.translation) for (i, j) in g.vertex_pairs)
 ```
 
 For an in-memory shape built with OpenCascade.jl (rather than a file on

@@ -4,6 +4,49 @@ All notable changes to Delone.jl are documented in this file.
 
 ## [Unreleased]
 
+### Added — Gmsh backend RVE parity: regions, local sizing, periodic BCs
+- **`gmsh_geometry_info(path)`**: discovers OCC face/solid tags and bounding
+  boxes without meshing — the Gmsh-tag analogue of
+  `occ_nr_faces`/`occ_face_bbox`. New `faces_on_plane` method for plain
+  `NamedTuple` face lists (Gmsh tags aren't contiguous, so it returns tags,
+  not positions).
+- **`generate_gmsh_mesh(path; regions=Dict(), boundary_names=Dict(), ...)`**:
+  names solids/faces before meshing (Gmsh physical groups), populating
+  `MeshLevelSnapshot`'s `cell_regions`/`boundary_regions`/`material_names`/
+  `boundary_names` fields — previously always empty/placeholder on the Gmsh
+  path. Throws `ArgumentError` for an unknown tag or a tag claimed by two
+  different names.
+- **`generate_gmsh_mesh(path; refine_near=[...], ...)`**: local mesh-size
+  zones (Gmsh `Distance`+`Threshold` fields, combined via `Min` for several
+  zones), specified by faces, curves, or a point. Found and fixed a real bug
+  during development: a `point=` entry injects a free-standing OCC point
+  that Gmsh meshes as an unreferenced 0-D node — now filtered out of the
+  returned snapshot (a general `_drop_unreferenced_nodes` compaction step,
+  not just a `point=`-specific fix).
+- **`generate_gmsh_mesh(path; periodic=[...], periodic_box=..., result=true)`**
+  + **`GmshPeriodicGroup`**/**`GmshMeshGenerationResult`**: periodic face
+  identification via Gmsh's `setPeriodic`, the Gmsh-backend analogue of
+  `identify_periodic!`/`identify_periodic_box!`. **Real difference from the
+  Netgen backend**: Gmsh pairs faces by position, not by geometric matching,
+  so `periodic_box` only supports one face per extreme (throws on a
+  boolean-cut-fragmented face, unlike Netgen's multi-fragment support) —
+  use `periodic=` with manually-ordered fragment lists as the fallback.
+  `result=true` returns node correspondence (`vertex_pairs`) in the same
+  `(master_idx, slave_idx)` convention as `periodic_vertex_pairs`, so
+  `coordinates[:, slave] - coordinates[:, master] == translation`. Found and
+  fixed a real bug during development: the first implementation had this
+  pairing backwards (`(slave_idx, master_idx)`), caught by an exact
+  coordinate-delta check, not just "didn't throw."
+- `generate_mesh(...; backend=:gmsh)` and `generate_mesh(::Monge.Body;
+  backend=:gmsh)` now forward all keywords (`regions`, `boundary_names`,
+  `refine_near`, `periodic`, `periodic_box`, ...) to `generate_gmsh_mesh` —
+  previously only `maxh` reached the Gmsh path through these unified entry
+  points, silently dropping everything else.
+- Considered a fully backend-agnostic 2D CSG unification (Netgen's
+  `Circle`/`Rectangle` lowered to Gmsh's OCC kernel too) and deliberately
+  did not pursue it — no current 2D use case, and Gmsh has no equivalent
+  boolean-CSG-to-mesh pipeline to lower onto.
+
 ### Added — unified geometry entry point for CAD bodies
 - **`generate_mesh(body::Monge.Body; maxh=..., backend=:netgen|:gmsh)`**
   (`src/interop.jl`): mesh an in-memory OpenCascade.jl (`Monge`) CAD body
