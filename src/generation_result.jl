@@ -283,6 +283,14 @@ Under `backend=:gmsh`, `geom` must be a file path (STEP/IGES/BREP; Gmsh's
 own API is file-based, unlike Netgen's geometry objects), only `maxh` is
 honored, and `options=`/`result=true` throw `ArgumentError` rather than
 silently ignoring Netgen-specific settings Gmsh has no equivalent for.
+
+A `Monge.Body` (an in-memory CAD shape from OpenCascade.jl) can also be
+passed directly as `geometry` (see `src/interop.jl`) — the backend-agnostic
+alternative to converting to a BREP string and picking
+[`occ_geometry_from_brep_string`](@ref)/[`gmsh_mesh_from_brep_string`](@ref)
+by hand: `generate_mesh(body; maxh=..., backend=:netgen)` and
+`generate_mesh(body; maxh=..., backend=:gmsh)` both work from the same
+`body`, with the same `backend=:gmsh` restrictions (`maxh` only) as above.
 """
 function generate_mesh(geom; options=nothing, maxh=nothing, result::Bool=false,
                         backend::Symbol=:netgen, kwargs...)

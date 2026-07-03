@@ -28,6 +28,15 @@ import OCCT_jll  # load before Netgen.__init__ runs @initcxx (BREP bridge)
 using OodiCore
 import OodiCore: report, validate, readiness, to_namedtuple
 
+# Monge (CAD modeling, OpenCascade.jl) is a hard dependency purely for this
+# monorepo's sibling-package development convenience (see test/runtests.jl's
+# comment on why it's declared in [deps] rather than [weakdeps]/[extras]
+# only) — not because every Delone user needs CAD modeling. `Body`/
+# `to_brep_string` back the generate_mesh(::Monge.Body) method in
+# interop.jl, the backend-agnostic counterpart of
+# occ_geometry_from_brep_string/gmsh_mesh_from_brep_string.
+using Monge: Body, to_brep_string
+
 include("netgen.jl")
 include("constants.jl")
 include("diagnostics.jl")
