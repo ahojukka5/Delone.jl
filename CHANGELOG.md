@@ -4,6 +4,30 @@ All notable changes to Delone.jl are documented in this file.
 
 ## [Unreleased]
 
+### Added — multi-fragment periodic face pairing
+- **`identify_periodic!`/`identify_periodic_box!`** (`src/periodic.jl`) now
+  accept `Vector{<:Integer}` for `facenr_me`/`facenr_you`, not just a single
+  face index — needed the moment a boolean cut (an inclusion/pore touching
+  the periodic boundary of an RVE unit cell) splits one outer face into
+  several `TopoDS_Face` fragments. `identify_periodic_box!` no longer throws
+  `ArgumentError` when more than one face is found at an extreme; it passes
+  every fragment through in one call instead. **Behavior change**: this was
+  previously a hard error (ambiguous → throw), now it succeeds automatically
+  for the common case.
+- New `NetgenCxxWrap_jll` binding **`OCC_IdentifyFacesBulk`** replaces
+  `OCC_IdentifyFaces` as the binding Delone.jl calls: it accepts face-index
+  *vectors* per side so Netgen's own `netgen::Identify` can do its N×M
+  fragment-to-fragment matching internally — no hand-rolled geometric
+  matching needed in Julia. Match count is checked against
+  `min(length(facenr_me), length(facenr_you))`, not just `> 0`: a partial
+  match (some fragments paired, some not) throws `ArgumentError` rather than
+  silently leaving a fragment un-periodicized.
+- New test coverage in `test/periodic.jl` using a real fragmented-box fixture
+  built via `Monge.subtract` (two symmetric notches split both periodic
+  faces into two pieces each): verifies both fragments get exact
+  node-coordinate correspondence after meshing, and that a deliberately
+  mismatched fragment pairing is correctly rejected.
+
 ### Added — Gmsh backend selector and BREP-string bridge
 - **`generate_mesh(geom; backend=:gmsh, maxh=...)`**: a familiar-verb
   alternative to calling `generate_gmsh_mesh` directly. Additive kwarg

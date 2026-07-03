@@ -110,11 +110,18 @@ pairs = periodic_vertex_pairs(mesh, 1)
 Periodic identification must be set up **before** `generate_mesh` — see
 [`identify_periodic!`](@ref)'s docstring for the general (non-box) entry
 point, and the note there on why the function returns a **new** geometry
-handle that you must use in place of the one you passed in. For a
-microstructure unit cell (e.g. a box with inclusions/pores boolean-subtracted
-from it), use [`faces_on_plane`](@ref) to inspect face indices directly if
-[`identify_periodic_box!`](@ref) can't find a single unambiguous face per
-side (a boolean cut can split one outer face into several fragments).
+handle that you must use in place of the one you passed in.
+
+For a microstructure unit cell (e.g. a box with inclusions/pores
+boolean-subtracted from it), a boolean cut can split one outer face into
+several `TopoDS_Face` fragments — this is handled automatically:
+[`identify_periodic_box!`](@ref) passes every fragment found at each extreme
+through to Netgen's own fragment-to-fragment matching in one call. It only
+throws `ArgumentError` if a fragment genuinely has no counterpart (fewer
+matches than fragments on the smaller side) — at that point, use
+[`faces_on_plane`](@ref) to inspect face indices directly and call
+[`identify_periodic!`](@ref) with explicit (possibly hand-picked) face-index
+vectors instead.
 
 ## Alternative backend: Gmsh
 
