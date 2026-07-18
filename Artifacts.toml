@@ -1,5 +1,5 @@
 [NGSolveNetgen]
-git-tree-sha1 = "a94d317073664fdb483ccdcbd4f37099933bafb9"
+git-tree-sha1 = "22b6752d1a2d14a9e02e48ea3abfbf3d901ac79b"
 
 [libnetgen_cxxwrap]
-git-tree-sha1 = "97489d2b6bae1b72c1e26b51ba5d51bd54309e0d"
+git-tree-sha1 = "890f20b27126f7543501b47059fb2e91645d9763"
